@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct ServicesView: View {
     let vehicle: Vehicle
+    @Binding var selectedID: String
+    @Environment(\.modelContext) private var context
     @State private var showingNew = false
     @State private var editing: Expense?
 
@@ -10,136 +13,97 @@ struct ServicesView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                ScreenTitle(text: "Central de serviços")
-                    .padding(.bottom, 4)
-
-                SectionLabel("Próximos serviços")
+        NavigationStack {
+            List {
                 let reminders = vehicle.serviceReminders
-                if reminders.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Nada com alerta ainda")
-                            .font(.system(size: 18, weight: .bold))
-                        Text("Registre um serviço com intervalo para acompanhar o próximo vencimento.")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                    .darkCard()
-                } else {
-                    ForEach(reminders) { reminder in
-                        Button { editing = reminder.expense } label: {
-                            ReminderCard(reminder: reminder)
+                Section {
+                    if reminders.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Nenhum lembrete ativo", systemImage: "bell.slash")
+                                .font(.rounded(16, .semibold))
+                            Text("Ao registrar um serviço, informe \"a cada X km\" ou \"a cada X meses\" para acompanhar o próximo.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(PressableStyle())
+                        .padding(.vertical, 6)
+                    } else {
+                        ForEach(reminders) { reminder in
+                            Button { editing = reminder.expense } label: {
+                                ReminderRow(reminder: reminder)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    Text("Próximas manutenções")
+                } footer: {
+                    if !reminders.isEmpty {
+                        Text("A barra mostra quanto do intervalo já foi usado.")
                     }
                 }
 
-                Button("Registrar serviço") { showingNew = true }
-                    .buttonStyle(LimeButtonStyle())
-                    .padding(.vertical, 8)
+                Section {
+                    Button { showingNew = true } label: {
+                        Label("Registrar serviço", systemImage: "plus.circle.fill")
+                            .font(.rounded(16, .semibold))
+                    }
+                }
 
-                SectionLabel("Histórico")
-                if services.isEmpty {
-                    Text("Nenhum serviço registrado.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.textSecondary)
-                        .darkCard()
-                } else {
-                    ForEach(services) { service in
-                        Button { editing = service } label: {
-                            ServiceHistoryCard(expense: service)
+                Section("Histórico") {
+                    if services.isEmpty {
+                        Text("Nenhum serviço registrado.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(services) { service in
+                            Button { editing = service } label: {
+                                ExpenseRow(expense: service)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(PressableStyle())
+                        .onDelete(perform: delete)
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .listStyle(.insetGrouped)
+            .navigationTitle("Serviços")
+            .appToolbar(vehicle: vehicle, selectedID: $selectedID)
+            .sheet(isPresented: $showingNew) {
+                ExpenseFormView(vehicle: vehicle, category: .maintenance)
+            }
+            .sheet(item: $editing) { expense in
+                ExpenseFormView(vehicle: vehicle, expense: expense)
+            }
         }
-        .scrollIndicators(.hidden)
-        .sheet(isPresented: $showingNew) {
-            ExpenseFormView(vehicle: vehicle, category: .maintenance)
+    }
+
+    private func delete(at offsets: IndexSet) {
+        let items = offsets.map { services[$0] }
+        for item in items {
+            vehicle.expenses.removeAll { $0 == item }
+            context.delete(item)
         }
-        .sheet(item: $editing) { expense in
-            ExpenseFormView(vehicle: vehicle, expense: expense)
-        }
+        try? context.save()
     }
 }
 
-struct ReminderCard: View {
+struct ReminderRow: View {
     let reminder: ServiceReminder
 
     var body: some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(reminder.status.color)
-                .frame(width: 4)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack {
-                    Text(reminder.title)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.white)
-                    Spacer()
-                    Text(statusLabel)
-                        .font(.system(size: 12, weight: .bold))
-                        .tracking(1)
-                        .foregroundStyle(reminder.status.color)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(reminder.status.color.opacity(0.14), in: Capsule())
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                IconTile(systemName: "wrench.and.screwdriver.fill", color: reminder.status.color, size: 38)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(reminder.title).font(.rounded(16, .semibold))
+                    Text(reminder.summary).font(.caption).foregroundStyle(.secondary)
                 }
-                Text(reminder.summary)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.textSecondary)
+                Spacer(minLength: 4)
+                StatusBadge(status: reminder.status)
             }
+            ProgressView(value: min(reminder.progress, 1))
+                .tint(reminder.status.color)
         }
-        .fixedSize(horizontal: false, vertical: true)
-        .darkCard(padding: 18)
-    }
-
-    private var statusLabel: String {
-        switch reminder.status {
-        case .ok: "EM DIA"
-        case .soon: "EM BREVE"
-        case .overdue: "VENCIDO"
-        }
-    }
-}
-
-struct ServiceHistoryCard: View {
-    let expense: Expense
-
-    var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(expense.displayTitle)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.white)
-                    if !expense.place.isEmpty && expense.place != expense.title {
-                        Text("· \(expense.place)")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                }
-                .lineLimit(1)
-                Text(subtitle)
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.textSecondary)
-            }
-            Spacer()
-            Text(expense.amount.brl)
-                .font(.money(17))
-                .foregroundStyle(Color.white.opacity(0.85))
-        }
-        .darkCard(padding: 20)
-    }
-
-    private var subtitle: String {
-        var parts = [expense.date.formatted(date: .numeric, time: .omitted)]
-        if let km = expense.odometer { parts.append(km.km) }
-        if expense.hasReceipt { parts.append("📎") }
-        return parts.joined(separator: " · ")
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }

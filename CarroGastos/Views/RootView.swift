@@ -1,36 +1,14 @@
 import SwiftUI
 import SwiftData
 
-enum AppTab: Int, CaseIterable, Identifiable {
+enum AppTab: Hashable {
     case home, services, documents, finance
-
-    var id: Int { rawValue }
-
-    var icon: String {
-        switch self {
-        case .home: "speedometer"
-        case .services: "wrench.and.screwdriver.fill"
-        case .documents: "doc.text.fill"
-        case .finance: "banknote.fill"
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .home: "Painel"
-        case .services: "Serviços"
-        case .documents: "Documentação"
-        case .finance: "Financeiro"
-        }
-    }
 }
 
 struct RootView: View {
     @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
     @AppStorage("selectedVehicleID") private var selectedID: String = ""
     @State private var tab: AppTab = .home
-    @State private var showingGarage = false
-    @State private var showingSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var selectedVehicle: Vehicle? {
@@ -38,34 +16,25 @@ struct RootView: View {
     }
 
     var body: some View {
-        ZStack {
-            AppBackground()
-
+        Group {
             if let vehicle = selectedVehicle {
-                Group {
-                    switch tab {
-                    case .home: HomeView(vehicle: vehicle, tab: $tab)
-                    case .services: ServicesView(vehicle: vehicle)
-                    case .documents: DocumentsView(vehicle: vehicle)
-                    case .finance: FinanceView(vehicle: vehicle)
-                    }
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    BottomBar(
-                        tab: $tab,
-                        onGarage: { showingGarage = true },
-                        onSettings: { showingSettings = true }
-                    )
-                }
-                .sheet(isPresented: $showingSettings) {
-                    SettingsView(vehicle: vehicle)
+                TabView(selection: $tab) {
+                    HomeView(vehicle: vehicle, selectedID: $selectedID, tab: $tab)
+                        .tabItem { Label("Início", systemImage: "house.fill") }
+                        .tag(AppTab.home)
+                    ServicesView(vehicle: vehicle, selectedID: $selectedID)
+                        .tabItem { Label("Serviços", systemImage: "wrench.and.screwdriver.fill") }
+                        .tag(AppTab.services)
+                    DocumentsView(vehicle: vehicle, selectedID: $selectedID)
+                        .tabItem { Label("Documentos", systemImage: "doc.text.fill") }
+                        .tag(AppTab.documents)
+                    FinanceView(vehicle: vehicle, selectedID: $selectedID)
+                        .tabItem { Label("Gastos", systemImage: "chart.bar.fill") }
+                        .tag(AppTab.finance)
                 }
             } else {
                 WelcomeView()
             }
-        }
-        .sheet(isPresented: $showingGarage) {
-            GarageView(selectedID: $selectedID)
         }
         .onChange(of: scenePhase) { _, phase in
             // Reagenda os lembretes sempre que o app vai para segundo plano
@@ -76,107 +45,86 @@ struct RootView: View {
     }
 }
 
-// MARK: - Barra inferior flutuante
-
-struct BottomBar: View {
-    @Binding var tab: AppTab
-    let onGarage: () -> Void
-    let onSettings: () -> Void
-    @Namespace private var namespace
+/// Menu da barra superior para trocar de carro.
+struct VehicleMenu: View {
+    @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
+    let current: Vehicle
+    @Binding var selectedID: String
+    let onManage: () -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onGarage) {
-                ZStack(alignment: .bottomTrailing) {
-                    Circle()
-                        .fill(Color.appBackground.opacity(0.92))
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.28), lineWidth: 1.5))
-                        .overlay(
-                            Image(systemName: "car.side")
-                                .font(.system(size: 22, weight: .light))
-                                .foregroundStyle(Color.white.opacity(0.7))
-                        )
-                        .frame(width: 60, height: 60)
-                    Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.lime)
-                        .frame(width: 24, height: 24)
-                        .background(Color.black, in: Circle())
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.15)))
-                        .offset(x: 4, y: 4)
-                }
-            }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel("Trocar de carro")
-
-            Spacer(minLength: 8)
-
-            HStack(spacing: 2) {
-                ForEach(AppTab.allCases) { item in
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { tab = item }
-                    } label: {
-                        Image(systemName: item.icon)
-                            .font(.system(size: 19, weight: .semibold))
-                            .foregroundStyle(tab == item ? Color.lime : Color.black)
-                            .frame(width: 52, height: 52)
-                            .background {
-                                if tab == item {
-                                    Circle()
-                                        .fill(Color.black)
-                                        .matchedGeometryEffect(id: "selectedTab", in: namespace)
-                                }
-                            }
+        Menu {
+            ForEach(vehicles) { vehicle in
+                Button {
+                    selectedID = vehicle.uuid.uuidString
+                } label: {
+                    if vehicle == current {
+                        Label(vehicle.name, systemImage: "checkmark")
+                    } else {
+                        Text(vehicle.name)
                     }
-                    .accessibilityLabel(item.label)
                 }
             }
-            .padding(5)
-            .background(Color.lime, in: Capsule())
-            .shadow(color: Color.lime.opacity(0.35), radius: 18, y: 6)
-
-            Spacer(minLength: 8)
-
-            Button(action: onSettings) {
-                Image(systemName: "slider.vertical.3")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Color.black)
-                    .frame(width: 60, height: 60)
-                    .background(Color.lime, in: Circle())
+            Divider()
+            Button(action: onManage) {
+                Label("Gerenciar carros", systemImage: "car.2")
             }
-            .buttonStyle(PressableStyle())
-            .accessibilityLabel("Ajustes")
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "car.fill")
+                Text(current.name)
+                    .font(.rounded(16, .semibold))
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.bold())
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
     }
 }
-
-// MARK: - Boas-vindas
 
 struct WelcomeView: View {
     @State private var showingNewVehicle = false
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(alignment: .leading, spacing: 28) {
             Spacer()
-            CarSilhouette(size: 110)
-            VStack(spacing: 10) {
-                Text("Sua garagem")
-                    .font(.system(size: 38, weight: .bold))
-                Text("Abastecimentos, serviços, IPVA, licenciamento e todos os gastos do seu carro em um só lugar.")
-                    .font(.system(size: 17))
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
+            Image(systemName: "car.side.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .frame(width: 76, height: 76)
+                .background(Color.brand, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Gastos do Carro")
+                    .font(.rounded(36, .bold))
+                Text("Tudo o que seu carro custa, em um só lugar.")
+                    .font(.rounded(18))
+                    .foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 16) {
+                feature("fuelpump", "Abastecimentos e consumo médio")
+                feature("wrench.and.screwdriver", "Lembretes de manutenção")
+                feature("doc.text", "IPVA, licenciamento e multas")
+                feature("chart.bar", "Custo por mês e por km")
             }
             Spacer()
             Button("Cadastrar meu carro") { showingNewVehicle = true }
-                .buttonStyle(LimeButtonStyle())
+                .buttonStyle(PrimaryButtonStyle())
         }
         .padding(28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.canvas)
         .sheet(isPresented: $showingNewVehicle) {
             VehicleFormView(vehicle: nil)
+        }
+    }
+
+    private func feature(_ icon: String, _ text: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.brand)
+                .frame(width: 26)
+            Text(text).font(.rounded(16))
         }
     }
 }
@@ -184,5 +132,4 @@ struct WelcomeView: View {
 #Preview {
     RootView()
         .modelContainer(for: [Vehicle.self, Expense.self], inMemory: true)
-        .preferredColorScheme(.dark)
 }

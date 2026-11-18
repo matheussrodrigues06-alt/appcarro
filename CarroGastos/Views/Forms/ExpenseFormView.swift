@@ -34,6 +34,9 @@ struct ExpenseFormView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showingDelete = false
     @State private var loaded = false
+    @FocusState private var focus: Field?
+
+    enum Field { case amount, title }
 
     static let fuelTypes = ["Gasolina comum", "Gasolina aditivada", "Etanol", "Diesel", "GNV"]
     static let serviceSuggestions = [
@@ -93,13 +96,12 @@ struct ExpenseFormView: View {
                     }
                 }
             }
-            .darkForm()
             .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancelar") { dismiss() }
-                        .foregroundStyle(Color.white)
+                        
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") { save() }
@@ -128,8 +130,8 @@ struct ExpenseFormView: View {
     @ViewBuilder
     private var fuelSections: some View {
         Section {
-            numberRow("Valor (R$)", text: $amountText, placeholder: "0,00")
-            numberRow("Preço por litro (R$)", text: $priceText, placeholder: "Opcional")
+            amountRow("Valor (R$)")
+            numberRow("Preço por litro (R$)", text: $priceText, placeholder: lastPricePlaceholder)
             numberRow("Litros", text: $litersText, placeholder: "Opcional")
             if (litersValue ?? 0) <= 0, let liters = effectiveLiters {
                 LabeledContent("Litros (calculado)", value: "\(liters.formatted(.number.precision(.fractionLength(2)))) L")
@@ -146,7 +148,7 @@ struct ExpenseFormView: View {
 
         Section {
             numberRow("Hodômetro (km)", text: $odometerText, placeholder: String(vehicle.currentOdometer), keyboard: .numberPad)
-            TextField("Posto (opcional)", text: $place)
+            placeField("Posto (opcional)")
             DatePicker("Data", selection: $date, displayedComponents: .date)
         }
     }
@@ -156,6 +158,7 @@ struct ExpenseFormView: View {
         Section {
             HStack {
                 TextField("Serviço (ex.: Troca de óleo)", text: $title)
+                    .focused($focus, equals: .title)
                 Menu {
                     ForEach(Self.serviceSuggestions, id: \.self) { suggestion in
                         Button(suggestion) { title = suggestion }
@@ -163,11 +166,11 @@ struct ExpenseFormView: View {
                 } label: {
                     Image(systemName: "list.bullet.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(Color.lime)
+                        .foregroundStyle(Color.brand)
                 }
             }
-            TextField("Local / oficina", text: $place)
-            numberRow("Valor (R$)", text: $amountText, placeholder: "0,00")
+            placeField("Local / oficina")
+            amountRow("Valor (R$)")
             numberRow("Hodômetro (km)", text: $odometerText, placeholder: String(vehicle.currentOdometer), keyboard: .numberPad)
             DatePicker("Data", selection: $date, displayedComponents: .date)
         }
@@ -185,7 +188,7 @@ struct ExpenseFormView: View {
     @ViewBuilder
     private var obligationSections: some View {
         Section {
-            numberRow("Valor pago (R$)", text: $amountText, placeholder: "0,00")
+            amountRow("Valor pago (R$)")
             DatePicker("Data do pagamento", selection: $date, displayedComponents: .date)
             TextField(category == .ipva ? "Forma (ex.: à vista, cota única)" : "Detalhe (opcional)", text: $title)
         } footer: {
@@ -201,7 +204,7 @@ struct ExpenseFormView: View {
     private var genericSections: some View {
         Section {
             TextField(genericPlaceholder, text: $title)
-            numberRow("Valor (R$)", text: $amountText, placeholder: "0,00")
+            amountRow("Valor (R$)")
             DatePicker("Data", selection: $date, displayedComponents: .date)
             if category == .fine {
                 TextField("Local (opcional)", text: $place)
@@ -234,11 +237,56 @@ struct ExpenseFormView: View {
             }
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Label(receiptData == nil ? "Anexar comprovante" : "Trocar foto", systemImage: "paperclip")
-                    .foregroundStyle(Color.lime)
+                    .foregroundStyle(Color.brand)
             }
         } header: {
             Text("Comprovante")
         }
+    }
+
+    private func amountRow(_ label: String) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("0,00", text: $amountText)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .focused($focus, equals: .amount)
+        }
+    }
+
+    /// Postos/oficinas usados recentemente nesta categoria.
+    private var recentPlaces: [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for item in vehicle.sortedExpenses where item.category == category && !item.place.isEmpty {
+            if seen.insert(item.place.lowercased()).inserted { result.append(item.place) }
+            if result.count == 6 { break }
+        }
+        return result
+    }
+
+    private func placeField(_ prompt: String) -> some View {
+        HStack {
+            TextField(prompt, text: $place)
+            if !recentPlaces.isEmpty {
+                Menu {
+                    ForEach(recentPlaces, id: \.self) { item in
+                        Button(item) { place = item }
+                    }
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .foregroundStyle(Color.brand)
+                }
+                .accessibilityLabel("Locais recentes")
+            }
+        }
+    }
+
+    private var lastPricePlaceholder: String {
+        if let price = vehicle.lastFuel?.pricePerLiter { return "Último: \(price.brl)" }
+        return "Opcional"
     }
 
     private func numberRow(_ label: String, text: Binding<String>, placeholder: String, keyboard: UIKeyboardType = .decimalPad) -> some View {
@@ -263,6 +311,10 @@ struct ExpenseFormView: View {
             }
             if category == .fuel, let lastType = vehicle.lastFuel?.fuelType, !lastType.isEmpty {
                 fuelType = lastType
+            }
+            // Abre já com o teclado no campo principal
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                focus = category == .maintenance ? .title : .amount
             }
             return
         }

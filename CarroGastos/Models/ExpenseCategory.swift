@@ -71,7 +71,7 @@ enum ExpenseGroup: String, CaseIterable, Identifiable {
 
     var color: Color {
         switch self {
-        case .maintenance: Color.lime
+        case .maintenance: Color.serviceViolet
         case .fuel: Color.fuelBlue
         case .documents: Color.docsTeal
         case .fines: Color.danger
@@ -98,9 +98,17 @@ enum DueStatus: Int, Comparable {
 
     var title: String {
         switch self {
-        case .ok: "Tudo em dia"
-        case .soon: "Requer atenção"
-        case .overdue: "Algo venceu"
+        case .ok: "Em dia"
+        case .soon: "Atenção"
+        case .overdue: "Vencido"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .ok: "checkmark.circle.fill"
+        case .soon: "clock.fill"
+        case .overdue: "exclamationmark.circle.fill"
         }
     }
 }

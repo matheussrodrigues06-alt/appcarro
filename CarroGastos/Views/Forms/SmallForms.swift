@@ -15,17 +15,17 @@ struct OdometerFormView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 22) {
-                SectionLabel("Hodômetro atual")
+                Text("Hodômetro atual").font(.rounded(15, .semibold)).foregroundStyle(.secondary)
                     .padding(.top, 20)
                 TextField(String(vehicle.currentOdometer), text: $text)
                     .keyboardType(.numberPad)
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.rounded(52, .bold))
                     .monospacedDigit()
                     .multilineTextAlignment(.center)
                     .focused($focused)
                 Text("Último: \(vehicle.currentOdometer.km) · \(vehicle.lastOdometerDate.relativeDays)")
                     .font(.system(size: 15))
-                    .foregroundStyle(Color.textSecondary)
+                    .foregroundStyle(Color.secondary)
                 if let value, value < vehicle.currentOdometer {
                     Label("Valor menor que o último registro", systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 14, weight: .medium))
@@ -33,17 +33,17 @@ struct OdometerFormView: View {
                 }
                 Spacer()
                 Button("Salvar") { save() }
-                    .buttonStyle(LimeButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(value == nil)
                     .opacity(value == nil ? 0.5 : 1)
             }
             .padding(24)
-            .background(AppBackground())
+            .background(Color.canvas)
             .navigationTitle("Atualizar KM")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.foregroundStyle(Color.white)
+                    Button("Cancelar") { dismiss() }
                 }
             }
             .onAppear { focused = true }
@@ -89,12 +89,11 @@ struct BatteryFormView: View {
                     }
                 }
             }
-            .darkForm()
             .navigationTitle("Bateria 12V")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.foregroundStyle(Color.white)
+                    Button("Cancelar") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") {
@@ -150,12 +149,11 @@ struct FipeFormView: View {
                     Text("A alíquota varia por estado (ex.: SP 4%). Consulte o site da Secretaria da Fazenda do seu estado e a tabela FIPE do seu modelo.")
                 }
             }
-            .darkForm()
             .navigationTitle("FIPE e IPVA")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.foregroundStyle(Color.white)
+                    Button("Cancelar") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") {
@@ -170,6 +168,75 @@ struct FipeFormView: View {
             .onAppear {
                 fipeText = vehicle.fipeValue > 0 ? vehicle.fipeValue.decimalInput : ""
                 rateText = vehicle.ipvaRate.decimalInput
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .appSheetStyle()
+    }
+}
+
+// MARK: - Orçamento mensal
+
+struct BudgetFormView: View {
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    let vehicle: Vehicle
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        Text("Limite por mês (R$)")
+                        Spacer()
+                        TextField("0", text: $text)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                            .monospacedDigit()
+                            .focused($focused)
+                    }
+                    if vehicle.monthTotal > 0 {
+                        LabeledContent("Gasto este mês", value: vehicle.monthTotal.brl)
+                    }
+                    if vehicle.monthlyAverage > 0 {
+                        Button("Usar minha média mensal (\(vehicle.monthlyAverage.brlNoCents))") {
+                            text = vehicle.monthlyAverage.rounded().decimalInput
+                        }
+                    }
+                } footer: {
+                    Text("O cartão do carro mostra quanto do orçamento já foi usado no mês.")
+                }
+                if vehicle.monthlyBudget > 0 {
+                    Section {
+                        Button("Remover orçamento", role: .destructive) {
+                            vehicle.monthlyBudget = 0
+                            try? context.save()
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Orçamento mensal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Salvar") {
+                        vehicle.monthlyBudget = Double.parse(text) ?? 0
+                        try? context.save()
+                        Haptics.success()
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+            .onAppear {
+                text = vehicle.monthlyBudget > 0 ? vehicle.monthlyBudget.decimalInput : ""
+                focused = true
             }
         }
         .presentationDetents([.medium, .large])

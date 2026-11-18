@@ -6,8 +6,7 @@ struct CarroGastosApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .preferredColorScheme(.dark)
-                .tint(Color.lime)
+                .tint(Color.brand)
         }
         .modelContainer(for: [Vehicle.self, Expense.self])
     }

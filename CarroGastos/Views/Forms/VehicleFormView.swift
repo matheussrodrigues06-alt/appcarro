@@ -45,12 +45,11 @@ struct VehicleFormView: View {
                     Text("A quilometragem inicial é usada para calcular o custo por km. A FIPE serve para estimar o IPVA.")
                 }
             }
-            .darkForm()
             .navigationTitle(vehicle == nil ? "Novo carro" : "Editar carro")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.foregroundStyle(Color.white)
+                    Button("Cancelar") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salvar") { save() }

@@ -2,112 +2,131 @@ import SwiftUI
 
 struct HomeView: View {
     let vehicle: Vehicle
+    @Binding var selectedID: String
     @Binding var tab: AppTab
     @State private var sheet: HomeSheet?
 
     enum HomeSheet: Identifiable {
-        case odometer, fuel, battery
+        case odometer, battery
+        case new(ExpenseCategory)
         case edit(Expense)
 
         var id: String {
             switch self {
             case .odometer: "odometer"
-            case .fuel: "fuel"
             case .battery: "battery"
+            case .new(let category): "new-\(category.rawValue)"
             case .edit(let expense): "edit-\(expense.persistentModelID.hashValue)"
             }
         }
     }
 
-    private var yearExpenses: [Expense] {
-        vehicle.expenses.filter { Calendar.current.isDate($0.date, equalTo: .now, toGranularity: .year) }
+    private struct AlertItem: Identifiable {
+        let id: String
+        let icon: String
+        let color: Color
+        let title: String
+        let subtitle: String
+        let target: AppTab
+    }
+
+    private var monthTotal: Double { vehicle.monthTotal }
+
+    private var alerts: [AlertItem] {
+        var items = vehicle.serviceReminders.filter { $0.status != .ok }.map {
+            AlertItem(id: "s-\($0.id.hashValue)", icon: "wrench.and.screwdriver.fill", color: $0.status.color,
+                      title: $0.title, subtitle: $0.summary, target: .services)
+        }
+        let paid = vehicle.paidObligations(year: Vehicle.currentYear)
+        if paid < 2 {
+            items.append(AlertItem(id: "docs", icon: "doc.text.fill", color: Color.warning,
+                                   title: "Documentação \(Vehicle.currentYear)",
+                                   subtitle: "\(paid) de 2 obrigações pagas", target: .documents))
+        }
+        return items
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                hero
-                odometerSection
-                quickActions
-                divider
-                batterySection
-                divider
-                logbook
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
-        }
-        .scrollIndicators(.hidden)
-        .sheet(item: $sheet) { sheet in
-            switch sheet {
-            case .odometer: OdometerFormView(vehicle: vehicle)
-            case .fuel: ExpenseFormView(vehicle: vehicle, category: .fuel)
-            case .battery: BatteryFormView(vehicle: vehicle)
-            case .edit(let expense): ExpenseFormView(vehicle: vehicle, expense: expense)
-            }
-        }
-    }
-
-    private var divider: some View {
-        Rectangle().fill(Color.cardStroke).frame(height: 1)
-    }
-
-    // MARK: Hero
-
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ZStack {
-                RadialGradient(colors: [Color.white.opacity(0.06), .clear], center: .center, startRadius: 10, endRadius: 180)
-                CarSilhouette(size: 96)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 240)
-
-            if !vehicle.eyebrow.isEmpty {
-                Text(vehicle.eyebrow)
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(3)
-                    .foregroundStyle(Color.lime)
-            }
-            Text(vehicle.name)
-                .font(.system(size: 60, weight: .heavy))
-                .foregroundStyle(Color.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-            HStack {
-                Text(vehicle.version.isEmpty ? vehicle.modelName : vehicle.version)
-                    .font(.system(size: 17))
-                    .foregroundStyle(Color.white.opacity(0.75))
-                    .lineLimit(1)
-                Spacer()
-                if !vehicle.plate.isEmpty { PlateBadge(plate: vehicle.plate) }
-            }
-        }
-    }
-
-    // MARK: Odômetro
-
-    private var odometerSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionLabel("Odômetro")
-            HStack(alignment: .center) {
-                Button { sheet = .odometer } label: {
-                    OdometerDigits(value: vehicle.currentOdometer)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 26) {
+                    heroCard
+                    quickActions
+                    alertsSection
+                    batteryCard
+                    recentSection
                 }
-                .buttonStyle(PressableStyle())
-                Spacer(minLength: 8)
-                if let efficiency = vehicle.fuelEfficiency {
-                    VStack(spacing: 2) {
-                        Image(systemName: "leaf").font(.system(size: 18, weight: .medium))
-                        Text(efficiency.formatted(.number.precision(.fractionLength(1))))
-                            .font(.system(size: 14, weight: .bold))
-                        Text("km/l").font(.system(size: 10))
-                    }
-                    .foregroundStyle(Color.success)
-                    .frame(width: 62, height: 70)
-                    .background(Color.success.opacity(0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.success.opacity(0.35)))
-                    .accessibilityLabel("Consumo médio de \(efficiency.formatted(.number.precision(.fractionLength(1)))) quilômetros por litro")
+                .padding(16)
+            }
+            .background(Color.canvas)
+            .navigationTitle("Início")
+            .navigationBarTitleDisplayMode(.inline)
+            .appToolbar(vehicle: vehicle, selectedID: $selectedID)
+            .sheet(item: $sheet) { sheet in
+                switch sheet {
+                case .odometer: OdometerFormView(vehicle: vehicle)
+                case .battery: BatteryFormView(vehicle: vehicle)
+                case .new(let category): ExpenseFormView(vehicle: vehicle, category: category)
+                case .edit(let expense): ExpenseFormView(vehicle: vehicle, expense: expense)
+                }
+            }
+        }
+    }
+
+    // MARK: Cartão do carro
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vehicle.subtitle.isEmpty ? "Meu carro" : vehicle.subtitle)
+                        .font(.rounded(14, .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    Text(vehicle.name)
+                        .font(.rounded(32, .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                Spacer()
+                StatusBadge(status: vehicle.overallStatus)
+            }
+            if !vehicle.plate.isEmpty {
+                MercosulPlate(plate: vehicle.plate)
+            }
+            Divider()
+            HStack(alignment: .top, spacing: 8) {
+                    HeroMetric(title: "Hodômetro", value: vehicle.currentOdometer.formatted(.number), unit: "km")
+                    HeroMetric(
+                        title: "Consumo",
+                        value: vehicle.fuelEfficiency.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "—",
+                        unit: vehicle.fuelEfficiency == nil ? "" : "km/l"
+                    )
+                    HeroMetric(title: "Este mês", value: monthTotal.brlNoCents, unit: "")
+            }
+            budgetBar
+        }
+        .surfaceCard(padding: 20)
+    }
+
+    @ViewBuilder
+    private var budgetBar: some View {
+        if vehicle.monthlyBudget > 0 {
+            let ratio = monthTotal / vehicle.monthlyBudget
+            let color = ratio > 1 ? Color.danger : (ratio > 0.85 ? Color.warning : Color.brand)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Orçamento do mês").font(.rounded(13, .medium)).foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(monthTotal.brlNoCents) de \(vehicle.monthlyBudget.brlNoCents)")
+                        .font(.rounded(13, .semibold))
+                        .monospacedDigit()
+                }
+                ProgressView(value: min(ratio, 1)).tint(color)
+                if ratio > 1 {
+                    Text("Você passou \((monthTotal - vehicle.monthlyBudget).brlNoCents) do orçamento.")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.danger)
                 }
             }
         }
@@ -116,310 +135,178 @@ struct HomeView: View {
     // MARK: Ações rápidas
 
     private var quickActions: some View {
-        HStack(spacing: 14) {
-            QuickActionCard(
-                icon: "gauge.with.dots.needle.33percent",
-                title: "Atualizar KM",
-                subtitle: "Último registro \(vehicle.lastOdometerDate.relativeDays)"
-            ) { sheet = .odometer }
-
-            QuickActionCard(
-                icon: "fuelpump",
-                title: "Abastecer",
-                subtitle: lastFuelText
-            ) { sheet = .fuel }
+        HStack(alignment: .top, spacing: 8) {
+            Button { sheet = .new(.fuel) } label: { QuickActionLabel(icon: "fuelpump.fill", title: "Abastecer") }
+                .buttonStyle(.plain)
+            Button { sheet = .odometer } label: { QuickActionLabel(icon: "speedometer", title: "Atualizar km") }
+                .buttonStyle(.plain)
+            Button { sheet = .new(.maintenance) } label: { QuickActionLabel(icon: "wrench.and.screwdriver.fill", title: "Serviço") }
+                .buttonStyle(.plain)
+            Menu {
+                Button("Multa", systemImage: ExpenseCategory.fine.icon) { sheet = .new(.fine) }
+                Button("Seguro", systemImage: ExpenseCategory.insurance.icon) { sheet = .new(.insurance) }
+                Button("Taxa", systemImage: ExpenseCategory.fee.icon) { sheet = .new(.fee) }
+                Button("Outro gasto", systemImage: ExpenseCategory.other.icon) { sheet = .new(.other) }
+            } label: {
+                QuickActionLabel(icon: "plus", title: "Outro gasto")
+            }
         }
     }
 
-    private var lastFuelText: String {
-        guard let fuel = vehicle.lastFuel else { return "Nenhum registro ainda" }
-        var parts: [String] = []
-        if let liters = fuel.liters, liters > 0 {
-            parts.append("\(liters.formatted(.number.precision(.fractionLength(1)))) L")
+    // MARK: Atenção
+
+    private var alertsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Atenção")
+            VStack(spacing: 0) {
+                if alerts.isEmpty {
+                    HStack(spacing: 12) {
+                        IconTile(systemName: "checkmark.seal.fill", color: Color.success, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Nada pendente").font(.rounded(16, .semibold))
+                            Text("Serviços e documentos em dia").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(14)
+                } else {
+                    ForEach(Array(alerts.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { Divider().padding(.leading, 66) }
+                        Button { tab = item.target } label: {
+                            HStack(spacing: 12) {
+                                IconTile(systemName: item.icon, color: item.color, size: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.title).font(.rounded(16, .semibold)).foregroundStyle(.primary)
+                                    Text(item.subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
+                            }
+                            .padding(14)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        parts.append(fuel.amount.brl)
-        return "Último: " + parts.joined(separator: " · ")
     }
 
     // MARK: Bateria
 
-    private var batterySection: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Bateria 12V")
-                if let months = vehicle.batteryAgeMonths, let remaining = vehicle.batteryRemaining {
-                    Text(months == 0 ? "Trocada este mês" : "Trocada há \(months) \(months == 1 ? "mês" : "meses")")
-                        .font(.system(size: 19, weight: .bold))
-                    Text(remaining > 0
-                         ? "Vida útil estimada: cerca de \(max(1, 36 - months)) meses restantes."
-                         : "Já passou da vida útil média. Vale fazer um teste de carga.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.textSecondary)
-                } else {
-                    Text("Quando foi a última troca?")
-                        .font(.system(size: 19, weight: .bold))
-                    Text("Informe a data para estimar a vida útil da bateria.")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.textSecondary)
-                }
-            }
-            Spacer(minLength: 0)
-            Button { sheet = .battery } label: {
-                BatteryDial(remaining: vehicle.batteryRemaining)
-            }
-            .buttonStyle(PressableStyle())
-        }
-    }
-
-    // MARK: Diário de bordo
-
-    private var logbook: some View {
-        let recent = Array(vehicle.sortedExpenses.prefix(6))
-        let withReceipt = yearExpenses.filter(\.hasReceipt).count
-        let yearTotal = yearExpenses.reduce(0) { $0 + $1.amount }
-
-        return VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                SectionLabel("Diário de bordo")
-                Spacer()
-                Button("Ver tudo") { withAnimation { tab = .finance } }
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color.lime)
-            }
-
-            if recent.isEmpty {
-                Text("Nenhum registro ainda. Comece pelo seu próximo abastecimento.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.textSecondary)
-                    .darkCard()
-            } else {
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: "checkmark.shield")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.success)
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("\(withReceipt) de \(yearExpenses.count) registros comprovados")
-                                .font(.system(size: 16, weight: .medium))
-                            Spacer()
-                            Text("\(yearTotal.brl) em \(String(Vehicle.currentYear))")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        ProgressSegments(total: max(yearExpenses.count, 1), filled: withReceipt)
-                    }
-                }
-
-                VStack(spacing: 0) {
-                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, expense in
-                        TimelineRow(expense: expense, isLast: index == recent.count - 1) {
-                            sheet = .edit(expense)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Componentes do painel
-
-struct OdometerDigits: View {
-    let value: Int
-
-    var body: some View {
-        let text = String(format: "%06ld", max(0, value))
-        let digits = Array(text)
-        let leadingZeros = value == 0 ? digits.count - 1 : digits.prefix { $0 == "0" }.count
-        let width: CGFloat = digits.count > 6 ? 36 : 42
-
-        HStack(alignment: .lastTextBaseline, spacing: 6) {
-            HStack(spacing: 6) {
-                ForEach(Array(digits.enumerated()), id: \.offset) { index, character in
-                    let isLast = index == digits.count - 1
-                    Text(String(character))
-                        .font(.system(size: 30, weight: .semibold, design: .rounded))
-                        .foregroundStyle(isLast ? Color.black : (index < leadingZeros ? Color.textTertiary : Color.white))
-                        .frame(width: width, height: 62)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(isLast ? Color.lime : Color.cardElevated)
-                        )
-                }
-            }
-            Text("km")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.textSecondary)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Hodômetro: \(value.km)")
-    }
-}
-
-struct QuickActionCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top) {
-                    Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Color.black)
-                        .frame(width: 48, height: 48)
-                        .background(Color.lime, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    Spacer()
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.white.opacity(0.8))
-                        .frame(width: 32, height: 32)
-                        .background(Color.cardElevated, in: Circle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.white)
-                    Text(subtitle)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
-            .darkCard(padding: 16, radius: 24)
-        }
-        .buttonStyle(PressableStyle())
-    }
-}
-
-struct BatteryDial: View {
-    /// 0...1, ou nil quando ainda não informado.
-    let remaining: Double?
-    private let ticks = 44
-
-    var body: some View {
-        let filled = Int((remaining ?? 0) * Double(ticks))
-        ZStack {
-            ForEach(0..<ticks, id: \.self) { index in
-                Capsule()
-                    .fill(index < filled ? tickColor : Color.white.opacity(0.28))
-                    .frame(width: 1.6, height: 8)
-                    .offset(y: -60)
-                    .rotationEffect(.degrees(Double(index) / Double(ticks) * 360))
-            }
-            Circle()
-                .fill(Color.cardBackground)
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.12)))
-                .frame(width: 92, height: 92)
-            VStack(spacing: 4) {
-                Image(systemName: "minus.plus.batteryblock")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(Color.lime)
-                Text(remaining.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "Informar")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.white)
-            }
-        }
-        .frame(width: 136, height: 136)
-    }
-
-    private var tickColor: Color {
-        guard let remaining else { return Color.lime }
+    private var batteryColor: Color {
+        guard let remaining = vehicle.batteryRemaining else { return Color.brand }
         if remaining < 0.15 { return Color.danger }
         if remaining < 0.35 { return Color.warning }
-        return Color.lime
+        return Color.success
     }
-}
 
-struct ProgressSegments: View {
-    let total: Int
-    let filled: Int
-
-    var body: some View {
-        if total <= 12 {
-            HStack(spacing: 4) {
-                ForEach(0..<total, id: \.self) { index in
-                    Capsule()
-                        .fill(index < filled ? Color.success : Color.cardElevated)
-                        .frame(height: 5)
-                }
-            }
-        } else {
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.cardElevated)
-                    Capsule().fill(Color.success)
-                        .frame(width: proxy.size.width * Double(filled) / Double(max(total, 1)))
-                }
-            }
-            .frame(height: 5)
-        }
-    }
-}
-
-struct TimelineRow: View {
-    let expense: Expense
-    let isLast: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(spacing: 2) {
-                    Text(expense.date.dayNumber)
-                        .font(.system(size: 28, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.white)
-                    Text(expense.date.monthShortUpper)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.textTertiary)
-                }
-                .frame(width: 44)
-
-                VStack(spacing: 0) {
-                    Image(systemName: expense.category.icon)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(expense.category.color)
-                        .frame(width: 30, height: 30)
-                        .background(Color.cardElevated, in: Circle())
-                    if !isLast {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.12))
-                            .frame(width: 1.5)
-                            .frame(maxHeight: .infinity)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(expense.logTitle)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(Color.white)
-                            .lineLimit(1)
+    private var batteryCard: some View {
+        Button { sheet = .battery } label: {
+            HStack(spacing: 14) {
+                IconTile(systemName: "minus.plus.batteryblock", color: batteryColor, size: 44)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Bateria 12V").font(.rounded(16, .semibold))
                         Spacer()
-                        Text(expense.amount.brl)
-                            .font(.money(16, weight: .regular))
-                            .foregroundStyle(Color.white.opacity(0.85))
+                        Text(vehicle.batteryRemaining.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "Informar")
+                            .font(.rounded(14, .semibold))
+                            .foregroundStyle(batteryColor)
                     }
-                    Text(expense.detailLine)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(1)
-                    Label(expense.hasReceipt ? "Comprovante anexado" : "Anexar comprovante",
-                          systemImage: expense.hasReceipt ? "checkmark" : "paperclip")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(expense.hasReceipt ? Color.success : Color.white.opacity(0.8))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.18)))
+                    if let remaining = vehicle.batteryRemaining, let months = vehicle.batteryAgeMonths {
+                        ProgressView(value: remaining).tint(batteryColor)
+                        Text(remaining > 0
+                             ? "Trocada há \(months) \(months == 1 ? "mês" : "meses") · cerca de \(max(1, 36 - months)) meses restantes"
+                             : "Passou da vida útil média. Vale fazer um teste de carga.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Informe a data da última troca para estimar a vida útil.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .padding(.bottom, 26)
             }
-            .contentShape(Rectangle())
+            .surfaceCard()
+            .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: Atividade recente
+
+    private var recentSection: some View {
+        let recent = Array(vehicle.sortedExpenses.prefix(5))
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Atividade recente", actionTitle: recent.isEmpty ? nil : "Ver todos") {
+                tab = .finance
+            }
+            if recent.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Nenhum registro ainda. Que tal começar pelo próximo abastecimento?")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Registrar abastecimento") { sheet = .new(.fuel) }
+                        .buttonStyle(PrimaryButtonStyle())
+                }
+                .surfaceCard()
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, expense in
+                        if index > 0 { Divider().padding(.leading, 68) }
+                        Button { sheet = .edit(expense) } label: {
+                            ExpenseRow(expense: expense).padding(14)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+        }
+    }
+}
+
+struct HeroMetric: View {
+    let title: String
+    let value: String
+    let unit: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.rounded(12, .medium))
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(.rounded(20, .bold)).monospacedDigit()
+                if !unit.isEmpty {
+                    Text(unit).font(.rounded(12, .medium)).foregroundStyle(.secondary)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct QuickActionLabel: View {
+    let icon: String
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.brand)
+                .frame(width: 58, height: 58)
+                .background(Color.surface, in: Circle())
+            Text(title)
+                .font(.rounded(12, .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
     }
 }

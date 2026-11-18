@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var editingVehicle = false
     @State private var editingFipe = false
     @State private var editingBattery = false
+    @State private var editingBudget = false
     @State private var backupURL: URL?
     @State private var showingImporter = false
     @State private var alertMessage: String?
@@ -29,8 +30,15 @@ struct SettingsView: View {
                     Button { editingBattery = true } label: {
                         Label("Data da troca da bateria", systemImage: "minus.plus.batteryblock")
                     }
+                    Button { editingBudget = true } label: {
+                        LabeledContent {
+                            Text(vehicle.monthlyBudget > 0 ? vehicle.monthlyBudget.brlNoCents : "Não definido")
+                        } label: {
+                            Label("Orçamento mensal", systemImage: "target")
+                        }
+                    }
                 }
-                .foregroundStyle(Color.white)
+                
 
                 Section {
                     Toggle(isOn: $notificationsEnabled) {
@@ -69,7 +77,8 @@ struct SettingsView: View {
                 } footer: {
                     Text("Guarde o backup no app Arquivos ou no iCloud Drive. Ele inclui todos os carros, registros e fotos dos comprovantes.")
                 }
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.primary)
+                
 
                 Section {
                     LabeledContent("Registros", value: "\(vehicle.expenses.count)")
@@ -79,7 +88,6 @@ struct SettingsView: View {
                     Text("Seus dados ficam salvos somente neste iPhone.")
                 }
             }
-            .darkForm()
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -90,6 +98,7 @@ struct SettingsView: View {
             .sheet(isPresented: $editingVehicle) { VehicleFormView(vehicle: vehicle) }
             .sheet(isPresented: $editingFipe) { FipeFormView(vehicle: vehicle) }
             .sheet(isPresented: $editingBattery) { BatteryFormView(vehicle: vehicle) }
+            .sheet(isPresented: $editingBudget) { BudgetFormView(vehicle: vehicle) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
                 restore(result)
             }

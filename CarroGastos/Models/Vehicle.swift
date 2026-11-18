@@ -18,6 +18,8 @@ final class Vehicle {
     var fipeValue: Double = 0
     /// Alíquota do IPVA em % (varia por estado).
     var ipvaRate: Double = 4.0
+    /// Limite de gastos por mês (0 = sem orçamento).
+    var monthlyBudget: Double = 0
     var createdAt: Date = Date()
 
     @Relationship(deleteRule: .cascade, inverse: \Expense.vehicle)
@@ -70,6 +72,20 @@ extension Vehicle {
 
     var lastFuel: Expense? {
         expenses.filter { $0.category == .fuel }.max { $0.date < $1.date }
+    }
+
+    var monthTotal: Double {
+        expenses
+            .filter { Calendar.current.isDate($0.date, equalTo: .now, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amount }
+    }
+
+    /// Último preço por litro pago para um tipo de combustível (ex.: "Etanol").
+    func lastFuelPrice(containing keyword: String) -> Double? {
+        expenses
+            .filter { $0.category == .fuel && $0.fuelType.localizedCaseInsensitiveContains(keyword) && $0.pricePerLiter != nil }
+            .max { $0.date < $1.date }?
+            .pricePerLiter
     }
 
     var lastService: Expense? {
@@ -202,6 +218,8 @@ struct ServiceReminder: Identifiable {
     let kmRemaining: Int?
     let daysRemaining: Int?
     let status: DueStatus
+    /// Quanto do intervalo já foi usado (0 = acabou de fazer, 1 = venceu).
+    let progress: Double
 
     var id: PersistentIdentifier { expense.persistentModelID }
 
@@ -227,6 +245,16 @@ struct ServiceReminder: Identifiable {
                 to: calendar.startOfDay(for: date)
             ).day
         }
+
+        var fractions: [Double] = []
+        if let interval = expense.intervalKm, interval > 0, let km = expense.odometer {
+            fractions.append(Double(currentOdometer - km) / Double(interval))
+        }
+        if let dueDate {
+            let total = dueDate.timeIntervalSince(expense.date)
+            if total > 0 { fractions.append(Date().timeIntervalSince(expense.date) / total) }
+        }
+        self.progress = max(0, fractions.max() ?? 0)
 
         let overdue = (kmRemaining.map { $0 <= 0 } ?? false) || (daysRemaining.map { $0 <= 0 } ?? false)
         let soon = (kmRemaining.map { $0 <= 1000 } ?? false) || (daysRemaining.map { $0 <= 30 } ?? false)

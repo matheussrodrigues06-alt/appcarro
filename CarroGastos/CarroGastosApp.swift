@@ -5,7 +5,7 @@ import SwiftData
 struct CarroGastosApp: App {
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppShell()
                 .tint(Color.brand)
         }
         .modelContainer(for: [Vehicle.self, Expense.self, FipeEntry.self])

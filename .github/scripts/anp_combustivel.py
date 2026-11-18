@@ -6,6 +6,7 @@ Saída: JSON pequeno com o preço médio da semana mais recente em cada municíp
 """
 import csv
 import io
+import os
 import json
 import re
 import sys
@@ -135,6 +136,7 @@ def main(out_path):
         "fonte": "ANP - Levantamento de Preços de Combustíveis",
         "cidades": dict(sorted(cities.items())),
     }
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(result, fh, ensure_ascii=False, separators=(",", ":"))
     print(f"OK: {len(cities)} cidades, semana {result['periodo']}")

@@ -25,6 +25,10 @@ struct VehicleDTO: Codable {
     var createdAt: Date
     var expenses: [ExpenseDTO]
     var monthlyBudget: Double?
+    var fipeBrandCode: String?
+    var fipeModelCode: String?
+    var fipeYearCode: String?
+    var fipeModelName: String?
 }
 
 struct ExpenseDTO: Codable {
@@ -60,7 +64,11 @@ enum BackupService {
                         referenceYear: e.referenceYear, notes: e.notes, receiptData: e.receiptData
                     )
                 },
-                monthlyBudget: v.monthlyBudget
+                monthlyBudget: v.monthlyBudget,
+                fipeBrandCode: v.fipeBrandCode,
+                fipeModelCode: v.fipeModelCode,
+                fipeYearCode: v.fipeYearCode,
+                fipeModelName: v.fipeModelName
             )
         })
         let encoder = JSONEncoder()
@@ -103,6 +111,10 @@ enum BackupService {
             vehicle.ipvaRate = dto.ipvaRate
             vehicle.createdAt = dto.createdAt
             vehicle.monthlyBudget = dto.monthlyBudget ?? 0
+            vehicle.fipeBrandCode = dto.fipeBrandCode ?? ""
+            vehicle.fipeModelCode = dto.fipeModelCode ?? ""
+            vehicle.fipeYearCode = dto.fipeYearCode ?? ""
+            vehicle.fipeModelName = dto.fipeModelName ?? ""
             context.insert(vehicle)
 
             for e in dto.expenses {

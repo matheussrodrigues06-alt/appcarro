@@ -20,10 +20,21 @@ final class Vehicle {
     var ipvaRate: Double = 4.0
     /// Limite de gastos por mês (0 = sem orçamento).
     var monthlyBudget: Double = 0
+    // Tabela FIPE automática (códigos da API pública)
+    var fipeBrandCode: String = ""
+    var fipeModelCode: String = ""
+    var fipeYearCode: String = ""
+    var fipeModelName: String = ""
+    var fipeCode: String = ""
+    var fipeReference: String = ""
+    var fipeUpdatedAt: Date?
     var createdAt: Date = Date()
 
     @Relationship(deleteRule: .cascade, inverse: \Expense.vehicle)
     var expenses: [Expense] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \FipeEntry.vehicle)
+    var fipeHistory: [FipeEntry] = []
 
     init(name: String) {
         self.uuid = UUID()
@@ -126,6 +137,12 @@ extension Vehicle {
         let months = (Calendar.current.dateComponents([.month], from: first.startOfMonth, to: Date().startOfMonth).month ?? 0) + 1
         return totalSpent / Double(max(months, 1))
     }
+
+    // MARK: FIPE
+
+    var isFipeLinked: Bool { !fipeYearCode.isEmpty }
+
+    var sortedFipeHistory: [FipeEntry] { fipeHistory.sorted { $0.date < $1.date } }
 
     // MARK: Documentação
 

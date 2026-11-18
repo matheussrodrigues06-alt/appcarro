@@ -9,7 +9,7 @@ struct HomeView: View {
     @AppStorage(ReminderScheduler.enabledKey) private var notificationsEnabled = false
 
     enum HomeSheet: Identifiable {
-        case odometer, battery, fipe, budget, fuelCompare, trip
+        case odometer, battery, fipe, budget, fuelCompare, trip, city
         case new(ExpenseCategory)
         case edit(Expense)
 
@@ -21,6 +21,7 @@ struct HomeView: View {
             case .budget: "budget"
             case .fuelCompare: "fuelCompare"
             case .trip: "trip"
+            case .city: "city"
             case .new(let category): "new-\(category.rawValue)"
             case .edit(let expense): "edit-\(expense.persistentModelID.hashValue)"
             }
@@ -60,6 +61,7 @@ struct HomeView: View {
                     quickActions
                     gettingStarted
                     alertsSection
+                    FuelPriceCard(vehicle: vehicle) { sheet = .city }
                     toolsSection
                     batteryCard
                     recentSection
@@ -78,6 +80,7 @@ struct HomeView: View {
                 case .budget: BudgetFormView(vehicle: vehicle)
                 case .fuelCompare: FuelCompareView(vehicle: vehicle)
                 case .trip: TripCostView(vehicle: vehicle)
+                case .city: FuelCityPickerView()
                 case .new(let category): ExpenseFormView(vehicle: vehicle, category: category)
                 case .edit(let expense): ExpenseFormView(vehicle: vehicle, expense: expense)
                 }

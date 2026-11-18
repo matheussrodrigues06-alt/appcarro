@@ -16,6 +16,11 @@ Visual escuro com destaque verde-limão e barra de abas flutuante.
   custo por km, média mensal e gráfico dos últimos 6 meses
 - **Garagem**: vários carros, com status de cada um (botão do carro, à esquerda da barra)
 - **Comprovantes**: anexe foto da nota/recibo em qualquer registro
+- **Leitura de cupom fiscal por foto**: valor, litros, preço, combustível, posto e data (no próprio iPhone)
+- **Km por foto do painel**, além do manual
+- **FIPE automática**: escolha o carro na tabela e o valor se atualiza todo mês, com gráfico de desvalorização
+- **Preço médio do combustível na sua cidade** (ANP), atualizado por um robô semanal do GitHub (`data/combustivel.json`)
+- **Assistente com IA da Apple** (Apple Intelligence, no aparelho): "abasteci 100 reais" e ele lança; desativado em iPhones sem suporte
 - **Notificações**: serviços vencendo, IPVA, documentação pendente, bateria e lembrete semanal de atualizar o km
 - **Backup e restauração** em JSON (inclui fotos), além de exportação em CSV
 - **Ajustes** (botão à direita da barra): editar carro, FIPE, bateria, notificações e backup

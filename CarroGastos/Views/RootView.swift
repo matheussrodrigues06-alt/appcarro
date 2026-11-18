@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 enum AppTab: Hashable {
-    case home, services, documents, finance
+    case home, services, assistant, documents, finance
 }
 
 struct RootView: View {
@@ -10,6 +10,7 @@ struct RootView: View {
     @AppStorage("selectedVehicleID") private var selectedID: String = ""
     @State private var tab: AppTab = .home
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var context
 
     private var selectedVehicle: Vehicle? {
         vehicles.first { $0.uuid.uuidString == selectedID } ?? vehicles.first
@@ -25,6 +26,10 @@ struct RootView: View {
                     ServicesView(vehicle: vehicle, selectedID: $selectedID)
                         .tabItem { Label("Serviços", systemImage: "wrench.and.screwdriver.fill") }
                         .tag(AppTab.services)
+                    AssistantView(vehicle: vehicle, selectedID: $selectedID)
+                        .id(vehicle.uuid)
+                        .tabItem { Label("Assistente", systemImage: "sparkles") }
+                        .tag(AppTab.assistant)
                     DocumentsView(vehicle: vehicle, selectedID: $selectedID)
                         .tabItem { Label("Documentos", systemImage: "doc.text.fill") }
                         .tag(AppTab.documents)
@@ -37,11 +42,26 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            // Reagenda os lembretes sempre que o app vai para segundo plano
-            if phase == .background {
+            switch phase {
+            case .background:
+                // Reagenda os lembretes sempre que o app vai para segundo plano
                 ReminderScheduler.reschedule(vehicles: vehicles)
+            case .active:
+                Task { await refreshExternalData() }
+            default:
+                break
             }
         }
+        .task { await refreshExternalData() }
+    }
+}
+
+extension RootView {
+    /// FIPE (uma vez por mês) e preço médio da ANP (algumas vezes por dia, no máximo).
+    @MainActor
+    func refreshExternalData() async {
+        await FipeUpdater.refreshIfNeeded(vehicles, context: context)
+        await FuelPriceStore.shared.refreshIfNeeded()
     }
 }
 
@@ -131,5 +151,5 @@ struct WelcomeView: View {
 
 #Preview {
     RootView()
-        .modelContainer(for: [Vehicle.self, Expense.self], inMemory: true)
+        .modelContainer(for: [Vehicle.self, Expense.self, FipeEntry.self], inMemory: true)
 }

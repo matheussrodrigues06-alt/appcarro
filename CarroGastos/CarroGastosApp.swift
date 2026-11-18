@@ -8,6 +8,6 @@ struct CarroGastosApp: App {
             RootView()
                 .tint(Color.brand)
         }
-        .modelContainer(for: [Vehicle.self, Expense.self])
+        .modelContainer(for: [Vehicle.self, Expense.self, FipeEntry.self])
     }
 }

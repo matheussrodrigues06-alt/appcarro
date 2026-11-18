@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var editingFipe = false
     @State private var editingBattery = false
     @State private var editingBudget = false
+    @State private var choosingCity = false
     @State private var backupURL: URL?
     @State private var showingImporter = false
     @State private var alertMessage: String?
@@ -29,6 +30,13 @@ struct SettingsView: View {
                     }
                     Button { editingBattery = true } label: {
                         Label("Data da troca da bateria", systemImage: "minus.plus.batteryblock")
+                    }
+                    Button { choosingCity = true } label: {
+                        LabeledContent {
+                            Text(FuelPriceStore.shared.hasCity ? FuelPriceStore.shared.cityLabel : "Escolher")
+                        } label: {
+                            Label("Cidade (preço do combustível)", systemImage: "mappin.and.ellipse")
+                        }
                     }
                     Button { editingBudget = true } label: {
                         LabeledContent {
@@ -99,6 +107,7 @@ struct SettingsView: View {
             .sheet(isPresented: $editingFipe) { FipeFormView(vehicle: vehicle) }
             .sheet(isPresented: $editingBattery) { BatteryFormView(vehicle: vehicle) }
             .sheet(isPresented: $editingBudget) { BudgetFormView(vehicle: vehicle) }
+            .sheet(isPresented: $choosingCity) { FuelCityPickerView() }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
                 restore(result)
             }

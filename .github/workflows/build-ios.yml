@@ -2,6 +2,11 @@ name: Build iOS (IPA sem assinatura)
 
 on:
   push:
+    paths-ignore:
+      - 'data/**'
+      - '.github/scripts/**'
+      - '.github/workflows/combustivel.yml'
+      - '**.md'
   workflow_dispatch:
 
 jobs:

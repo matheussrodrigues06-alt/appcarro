@@ -1,0 +1,35 @@
+name: Preços de combustível (ANP)
+
+# Roda de graça em máquina Linux: baixa a pesquisa semanal da ANP
+# e salva um resumo por cidade em data/combustivel.json, que o app lê.
+on:
+  schedule:
+    - cron: '23 10 * * 1,4'   # segundas e quintas, 07:23 (Brasília)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/anp_combustivel.py'
+      - '.github/workflows/combustivel.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar e resumir dados da ANP
+        run: python3 .github/scripts/anp_combustivel.py data/combustivel.json
+
+      - name: Salvar no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/combustivel.json
+          if git diff --cached --quiet; then echo "Sem mudanças"; exit 0; fi
+          git commit -m "Atualiza preços de combustível (ANP) [skip ci]"
+          git push

@@ -42,7 +42,7 @@ struct FuelCompareView: View {
                     FormNumberRow(label: "Etanol (R$/L)", text: $ethanolText, placeholder: "0,00")
                     FormNumberRow(label: "Gasolina (R$/L)", text: $gasolineText, placeholder: "0,00")
                 } header: {
-                    Text("Preço no posto")
+                    Text(FuelPriceStore.shared.prices != nil ? "Preço médio em \(FuelPriceStore.shared.cityLabel)" : "Preço no posto")
                 } footer: {
                     Text("Regra prática: o etanol rende cerca de 30% menos, então compensa quando custa até 70% do preço da gasolina.")
                 }
@@ -88,10 +88,11 @@ struct FuelCompareView: View {
                 }
             }
             .onAppear {
-                if ethanolText.isEmpty, let price = vehicle.lastFuelPrice(containing: "Etanol") {
+                let city = FuelPriceStore.shared.prices
+                if ethanolText.isEmpty, let price = city?.etanol ?? vehicle.lastFuelPrice(containing: "Etanol") {
                     ethanolText = price.decimalInput
                 }
-                if gasolineText.isEmpty, let price = vehicle.lastFuelPrice(containing: "Gasolina") {
+                if gasolineText.isEmpty, let price = city?.gasolina ?? vehicle.lastFuelPrice(containing: "Gasolina") {
                     gasolineText = price.decimalInput
                 }
             }

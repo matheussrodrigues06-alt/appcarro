@@ -25,6 +25,8 @@ struct ExpenseFormView: View {
     @State private var odometerText = ""
     @State private var litersText = ""
     @State private var priceText = ""
+    @State private var scanning = false
+    @State private var scanMessage: String?
     @State private var fuelType = ExpenseFormView.fuelTypes[0]
     @State private var isFullTank = true
     @State private var intervalKmText = ""
@@ -130,6 +132,22 @@ struct ExpenseFormView: View {
     @ViewBuilder
     private var fuelSections: some View {
         Section {
+            PhotoSourceButtons(cameraTitle: "Fotografar cupom", libraryTitle: "Da galeria") { image in
+                readReceipt(image)
+            }
+            if scanning {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Lendo o cupom…").foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Ler cupom fiscal")
+        } footer: {
+            Text(scanMessage ?? "Fotografe a nota do posto: o app preenche valor, litros, preço, combustível, posto e data. A leitura acontece no próprio iPhone.")
+        }
+
+        Section {
             amountRow("Valor (R$)")
             numberRow("Preço por litro (R$)", text: $priceText, placeholder: lastPricePlaceholder)
             numberRow("Litros", text: $litersText, placeholder: "Opcional")
@@ -143,7 +161,13 @@ struct ExpenseFormView: View {
             }
             Toggle("Tanque cheio", isOn: $isFullTank)
         } footer: {
-            Text("Informe o preço por litro ou os litros (um calcula o outro). Com tanque cheio e hodômetro, o app calcula seu consumo médio (km/l).")
+            VStack(alignment: .leading, spacing: 4) {
+                if let average = FuelPriceStore.shared.average(for: fuelType) {
+                    Text(cityComparison(average: average))
+                        .fontWeight(.medium)
+                }
+                Text("Informe o preço por litro ou os litros (um calcula o outro). Com tanque cheio e hodômetro, o app calcula seu consumo médio (km/l).")
+            }
         }
 
         Section {
@@ -297,6 +321,57 @@ struct ExpenseFormView: View {
                 .keyboardType(keyboard)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
+        }
+    }
+
+    // MARK: Leitura do cupom
+
+    private func cityComparison(average: Double) -> String {
+        let city = FuelPriceStore.shared.cityLabel
+        let price = priceValue ?? {
+            guard let amount = amountValue, let liters = litersValue, liters > 0 else { return nil }
+            return amount / liters
+        }()
+        guard let price, price > 0 else {
+            return "Média em \(city): \(average.brl)/L"
+        }
+        let diff = (price - average) / average
+        if abs(diff) < 0.01 { return "Você pagou a média de \(city) (\(average.brl)/L)." }
+        let pct = abs(diff).formatted(.percent.precision(.fractionLength(0)))
+        return diff > 0
+            ? "\(pct) acima da média de \(city) (\(average.brl)/L)."
+            : "\(pct) abaixo da média de \(city) (\(average.brl)/L). Boa!"
+    }
+
+    private func readReceipt(_ image: UIImage) {
+        scanning = true
+        scanMessage = nil
+        Task {
+            let lines = (try? await TextRecognizer.recognize(image)) ?? []
+            let data = ReceiptParser.parse(lines.map(\.text))
+            await MainActor.run {
+                scanning = false
+                guard !data.isEmpty else {
+                    scanMessage = "Não consegui ler o cupom. Tente uma foto mais reta, nítida e bem iluminada, ou preencha à mão."
+                    Haptics.warning()
+                    return
+                }
+                if let total = data.total { amountText = total.decimalInput }
+                if let price = data.pricePerLiter {
+                    priceText = price.formatted(.number.precision(.fractionLength(2...3)).grouping(.never))
+                }
+                if let liters = data.liters {
+                    litersText = liters.formatted(.number.precision(.fractionLength(0...3)).grouping(.never))
+                }
+                if let type = data.fuelType, Self.fuelTypes.contains(type) { fuelType = type }
+                if let station = data.station, place.isEmpty { place = station }
+                if let readDate = data.date { date = readDate }
+                if receiptData == nil, let jpeg = image.jpegData(compressionQuality: 0.9) {
+                    receiptData = Self.compress(jpeg)
+                }
+                scanMessage = "Cupom lido e anexado como comprovante. Confira os valores antes de salvar."
+                Haptics.success()
+            }
         }
     }
 

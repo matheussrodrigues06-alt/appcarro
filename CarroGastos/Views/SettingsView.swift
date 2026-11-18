@@ -129,7 +129,7 @@ struct SettingsView: View {
             let granted = await ReminderScheduler.requestAuthorization()
             if !granted {
                 notificationsEnabled = false
-                alertMessage = "Permita as notificações em Ajustes do iPhone → Gastos do Carro → Notificações."
+                alertMessage = "Permita as notificações em Ajustes do iPhone → Auto Check → Notificações."
                 return
             }
         }

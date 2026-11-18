@@ -195,7 +195,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Gastos do Carro";
+				INFOPLIST_KEY_CFBundleDisplayName = "Auto Check";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos a câmera para ler cupons fiscais e o km do painel. As fotos são processadas no próprio iPhone.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -224,7 +224,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Gastos do Carro";
+				INFOPLIST_KEY_CFBundleDisplayName = "Auto Check";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Usamos a câmera para ler cupons fiscais e o km do painel. As fotos são processadas no próprio iPhone.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

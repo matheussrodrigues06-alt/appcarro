@@ -137,7 +137,7 @@ final class AssistantEngine {
         let today = Date().formatted(.iso8601.year().month().day())
         let vehicle = actions.vehicle
         let instructions = """
-        Você é o assistente do app Gastos do Carro. Responda sempre em português do Brasil, de forma curta e simpática.
+        Você é o assistente do app Auto Check. Responda sempre em português do Brasil, de forma curta e simpática.
         Hoje é \(today). O carro ativo é \(vehicle.name) (\(vehicle.subtitle)), com \(vehicle.currentOdometer) km.
         Quando a pessoa contar um gasto (abastecimento, serviço, multa, seguro, IPVA etc.) ou um km, use a ferramenta certa para registrar.
         Nunca invente valores: se faltar o valor de um gasto, pergunte antes de registrar.

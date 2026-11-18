@@ -1,8 +1,8 @@
-# Política de Privacidade — Gastos do Carro
+# Política de Privacidade — Auto Check
 
 _Última atualização: 18 de novembro de 2026_
 
-O **Gastos do Carro** foi feito para que os seus dados fiquem com você.
+O **Auto Check** foi feito para que os seus dados fiquem com você.
 
 ## Quais dados o app guarda
 - Informações que você cadastra: carros (apelido, marca, modelo, ano, placa, km), gastos, abastecimentos, serviços, documentos, orçamento e fotos de comprovantes.

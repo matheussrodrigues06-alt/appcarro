@@ -3,8 +3,8 @@
 > Campos com limite de caracteres da Apple indicados entre parênteses.
 
 ## Nome (30)
-Gastos do Carro
-_(Troque quando decidir o nome definitivo.)_
+Auto Check: Gastos do Carro
+_(Nome provisório — verificar disponibilidade na App Store e no INPI.)_
 
 ## Subtítulo (30)
 Combustível, IPVA e manutenção

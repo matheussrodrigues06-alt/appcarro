@@ -114,7 +114,7 @@ struct WelcomeView: View {
                 .frame(width: 76, height: 76)
                 .background(Color.brand, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             VStack(alignment: .leading, spacing: 10) {
-                Text("Gastos do Carro")
+                Text("Auto Check")
                     .font(.rounded(36, .bold))
                 Text("Tudo o que seu carro custa, em um só lugar.")
                     .font(.rounded(18))

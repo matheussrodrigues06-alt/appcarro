@@ -1,4 +1,4 @@
-# Gastos do Carro 🚗
+# Auto Check 🚗
 
 App para iPhone (SwiftUI + SwiftData, iOS 17+) para controlar os gastos do seu carro.
 

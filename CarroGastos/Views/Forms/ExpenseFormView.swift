@@ -381,7 +381,9 @@ struct ExpenseFormView: View {
         guard !loaded else { return }
         loaded = true
         guard let expense else {
-            if category == .fuel || category == .maintenance {
+            // No serviço o km atual é um bom padrão; no abastecimento fica vazio
+            // (um km repetido estragaria o cálculo do consumo médio).
+            if category == .maintenance {
                 odometerText = String(vehicle.currentOdometer)
             }
             if category == .fuel, let lastType = vehicle.lastFuel?.fuelType, !lastType.isEmpty {

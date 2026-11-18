@@ -117,6 +117,8 @@ extension Vehicle {
         for fill in fills {
             guard let km = fill.odometer, let liters = fill.liters else { continue }
             if let last = lastFullOdometer {
+                // ignora registros sem avanço de km (km repetido ou digitado errado)
+                guard km > last else { continue }
                 litersSinceLastFull += liters
                 if fill.isFullTank {
                     totalKm += Double(km - last)

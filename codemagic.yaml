@@ -1,0 +1,33 @@
+# Build alternativo no Codemagic (codemagic.io) — gera um .ipa sem assinatura
+# para instalar com o Sideloadly. Plano gratuito: 500 min/mês em Mac M2.
+workflows:
+  ios-ipa:
+    name: iOS IPA (sem assinatura)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+    scripts:
+      - name: Compilar
+        script: |
+          xcodebuild -version
+          xcodebuild \
+            -project CarroGastos.xcodeproj \
+            -target CarroGastos \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$CM_BUILD_DIR/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Gerar .ipa
+        script: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/CarroGastos.app Payload/
+          zip -qr CarroGastos.ipa Payload
+    artifacts:
+      - CarroGastos.ipa

@@ -27,8 +27,8 @@ final class FuelPriceStore {
     /// Arquivo gerado toda semana pela automação do GitHub (repositório público).
     static let dataURL = URL(string: "https://raw.githubusercontent.com/matheussrodrigues06-alt/appcarro/main/data/combustivel.json")!
 
-    private(set) var file: FuelPriceFile?
-    private(set) var lastFetch: Date?
+    private(set) var file: FuelPriceFile? = nil
+    private(set) var lastFetch: Date? = nil
     private(set) var failed = false
     private(set) var cityKey: String
 

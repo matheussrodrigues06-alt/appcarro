@@ -10,14 +10,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: [macos-26, macos-15, macos-15-intel]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Versão do Xcode
-        run: xcodebuild -version
+      - name: Usar o Xcode mais novo (Liquid Glass precisa do Xcode 26+)
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest"; fi
+          xcodebuild -version
 
       - name: Compilar
         run: |

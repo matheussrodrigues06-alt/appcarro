@@ -5,9 +5,11 @@ struct HomeView: View {
     @Binding var selectedID: String
     @Binding var tab: AppTab
     @State private var sheet: HomeSheet?
+    @AppStorage("gettingStartedDismissed") private var gettingStartedDismissed = false
+    @AppStorage(ReminderScheduler.enabledKey) private var notificationsEnabled = false
 
     enum HomeSheet: Identifiable {
-        case odometer, battery
+        case odometer, battery, fipe, budget, fuelCompare, trip
         case new(ExpenseCategory)
         case edit(Expense)
 
@@ -15,6 +17,10 @@ struct HomeView: View {
             switch self {
             case .odometer: "odometer"
             case .battery: "battery"
+            case .fipe: "fipe"
+            case .budget: "budget"
+            case .fuelCompare: "fuelCompare"
+            case .trip: "trip"
             case .new(let category): "new-\(category.rawValue)"
             case .edit(let expense): "edit-\(expense.persistentModelID.hashValue)"
             }
@@ -52,13 +58,15 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     heroCard
                     quickActions
+                    gettingStarted
                     alertsSection
+                    toolsSection
                     batteryCard
                     recentSection
                 }
                 .padding(16)
             }
-            .background(Color.canvas)
+            .background(BrandGlow())
             .navigationTitle("Início")
             .navigationBarTitleDisplayMode(.inline)
             .appToolbar(vehicle: vehicle, selectedID: $selectedID)
@@ -66,6 +74,10 @@ struct HomeView: View {
                 switch sheet {
                 case .odometer: OdometerFormView(vehicle: vehicle)
                 case .battery: BatteryFormView(vehicle: vehicle)
+                case .fipe: FipeFormView(vehicle: vehicle)
+                case .budget: BudgetFormView(vehicle: vehicle)
+                case .fuelCompare: FuelCompareView(vehicle: vehicle)
+                case .trip: TripCostView(vehicle: vehicle)
                 case .new(let category): ExpenseFormView(vehicle: vehicle, category: category)
                 case .edit(let expense): ExpenseFormView(vehicle: vehicle, expense: expense)
                 }
@@ -106,7 +118,9 @@ struct HomeView: View {
             }
             budgetBar
         }
-        .surfaceCard(padding: 20)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(cornerRadius: 24)
     }
 
     @ViewBuilder
@@ -153,6 +167,112 @@ struct HomeView: View {
         }
     }
 
+    // MARK: Primeiros passos
+
+    private struct Step: Identifiable {
+        let id: String
+        let title: String
+        let icon: String
+        let done: Bool
+        let action: () -> Void
+    }
+
+    private var steps: [Step] {
+        [
+            Step(id: "fuel", title: "Registre um abastecimento", icon: "fuelpump.fill", done: vehicle.lastFuel != nil) { sheet = .new(.fuel) },
+            Step(id: "fipe", title: "Informe o valor da FIPE", icon: "tag.fill", done: vehicle.fipeValue > 0) { sheet = .fipe },
+            Step(id: "budget", title: "Defina um orçamento mensal", icon: "target", done: vehicle.monthlyBudget > 0) { sheet = .budget },
+            Step(id: "battery", title: "Informe a troca da bateria", icon: "minus.plus.batteryblock", done: vehicle.batteryChangedAt != nil) { sheet = .battery },
+            Step(id: "notify", title: "Ative os lembretes", icon: "bell.badge.fill", done: notificationsEnabled) { enableNotifications() },
+        ]
+    }
+
+    @ViewBuilder
+    private var gettingStarted: some View {
+        let done = steps.filter(\.done).count
+        if !gettingStartedDismissed && done < steps.count {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Primeiros passos").font(.rounded(18, .bold))
+                        Text("\(done) de \(steps.count) concluídos · leva 1 minuto")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        withAnimation { gettingStartedDismissed = true }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.footnote.bold())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30)
+                            .background(Color.secondary.opacity(0.12), in: Circle())
+                    }
+                    .accessibilityLabel("Dispensar primeiros passos")
+                }
+                ProgressView(value: Double(done), total: Double(steps.count))
+                    .tint(Color.brand)
+                VStack(spacing: 2) {
+                    ForEach(steps) { step in
+                        Button(action: step.action) {
+                            HStack(spacing: 12) {
+                                Image(systemName: step.done ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(step.done ? Color.success : Color.secondary)
+                                Image(systemName: step.icon)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.brand)
+                                    .frame(width: 22)
+                                Text(step.title)
+                                    .font(.rounded(15, .medium))
+                                    .strikethrough(step.done)
+                                    .foregroundStyle(step.done ? Color.secondary : Color.primary)
+                                Spacer()
+                                if !step.done {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(step.done)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard()
+        }
+    }
+
+    private func enableNotifications() {
+        Task {
+            if await ReminderScheduler.requestAuthorization() {
+                notificationsEnabled = true
+                ReminderScheduler.reschedule(vehicles: [vehicle])
+                Haptics.success()
+            }
+        }
+    }
+
+    // MARK: Ferramentas
+
+    private var toolsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Ferramentas")
+            HStack(spacing: 12) {
+                ToolCard(icon: "drop.halffull", color: Color.docsTeal,
+                         title: "Etanol ou gasolina?", subtitle: "Qual compensa hoje") { sheet = .fuelCompare }
+                ToolCard(icon: "map.fill", color: Color.serviceViolet,
+                         title: "Custo de viagem", subtitle: "Combustível e pedágio") { sheet = .trip }
+            }
+        }
+    }
+
     // MARK: Atenção
 
     private var alertsSection: some View {
@@ -189,7 +309,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .glassCard()
         }
     }
 
@@ -228,7 +348,9 @@ struct HomeView: View {
                     }
                 }
             }
-            .surfaceCard()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard()
             .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
@@ -250,7 +372,9 @@ struct HomeView: View {
                     Button("Registrar abastecimento") { sheet = .new(.fuel) }
                         .buttonStyle(PrimaryButtonStyle())
                 }
-                .surfaceCard()
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassCard()
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(recent.enumerated()), id: \.element.id) { index, expense in
@@ -261,9 +385,40 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .glassCard()
             }
         }
+    }
+}
+
+struct ToolCard: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                IconTile(systemName: icon, color: color, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.rounded(15, .semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+            .glassCard()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -300,7 +455,7 @@ struct QuickActionLabel: View {
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Color.brand)
                 .frame(width: 58, height: 58)
-                .background(Color.surface, in: Circle())
+                .glassCircle()
             Text(title)
                 .font(.rounded(12, .medium))
                 .foregroundStyle(.primary)

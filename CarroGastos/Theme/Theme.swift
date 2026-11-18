@@ -196,3 +196,52 @@ extension View {
         modifier(AppToolbar(vehicle: vehicle, selectedID: selectedID))
     }
 }
+
+// MARK: - Liquid Glass (iOS 26+), com alternativa para versões anteriores
+
+extension View {
+    /// Cartão de vidro no iOS 26; cartão sólido nas versões anteriores.
+    @ViewBuilder
+    func glassCard(cornerRadius: CGFloat = 20) -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            self.background(Color.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+        #else
+        self.background(Color.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        #endif
+    }
+
+    /// Botão circular de vidro interativo no iOS 26.
+    @ViewBuilder
+    func glassCircle() -> some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            self.background(Color.surface, in: Circle())
+        }
+        #else
+        self.background(Color.surface, in: Circle())
+        #endif
+    }
+}
+
+/// Brilho laranja suave no topo da tela, que dá "o que refratar" para o vidro.
+struct BrandGlow: View {
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.canvas
+            RadialGradient(
+                colors: [Color.brand.opacity(0.28), Color.brand.opacity(0.0)],
+                center: .init(x: 0.85, y: 0.0),
+                startRadius: 10,
+                endRadius: 420
+            )
+            .frame(height: 520)
+        }
+        .ignoresSafeArea()
+    }
+}

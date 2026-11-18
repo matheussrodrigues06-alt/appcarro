@@ -24,6 +24,7 @@ struct ExpenseFormView: View {
     @State private var date = Date()
     @State private var odometerText = ""
     @State private var litersText = ""
+    @State private var priceText = ""
     @State private var fuelType = ExpenseFormView.fuelTypes[0]
     @State private var isFullTank = true
     @State private var intervalKmText = ""
@@ -43,6 +44,14 @@ struct ExpenseFormView: View {
 
     private var amountValue: Double? { Double.parse(amountText) }
     private var litersValue: Double? { Double.parse(litersText) }
+    private var priceValue: Double? { Double.parse(priceText) }
+
+    /// Litros informados ou calculados a partir do preço por litro.
+    private var effectiveLiters: Double? {
+        if let liters = litersValue, liters > 0 { return liters }
+        if let amount = amountValue, let price = priceValue, price > 0 { return amount / price }
+        return nil
+    }
     private var year: Int { presetYear ?? Calendar.current.component(.year, from: date) }
 
     private var isValid: Bool {
@@ -120,8 +129,11 @@ struct ExpenseFormView: View {
     private var fuelSections: some View {
         Section {
             numberRow("Valor (R$)", text: $amountText, placeholder: "0,00")
-            numberRow("Litros", text: $litersText, placeholder: "0,0")
-            if let amount = amountValue, let liters = litersValue, liters > 0 {
+            numberRow("Preço por litro (R$)", text: $priceText, placeholder: "Opcional")
+            numberRow("Litros", text: $litersText, placeholder: "Opcional")
+            if (litersValue ?? 0) <= 0, let liters = effectiveLiters {
+                LabeledContent("Litros (calculado)", value: "\(liters.formatted(.number.precision(.fractionLength(2)))) L")
+            } else if (priceValue ?? 0) <= 0, let amount = amountValue, let liters = litersValue, liters > 0 {
                 LabeledContent("Preço por litro", value: (amount / liters).brl)
             }
             Picker("Combustível", selection: $fuelType) {
@@ -129,7 +141,7 @@ struct ExpenseFormView: View {
             }
             Toggle("Tanque cheio", isOn: $isFullTank)
         } footer: {
-            Text("Com tanque cheio e hodômetro informados, o app calcula seu consumo médio (km/l).")
+            Text("Informe o preço por litro ou os litros (um calcula o outro). Com tanque cheio e hodômetro, o app calcula seu consumo médio (km/l).")
         }
 
         Section {
@@ -280,7 +292,7 @@ struct ExpenseFormView: View {
         target.receiptData = receiptData
 
         if category == .fuel {
-            target.liters = litersValue
+            target.liters = effectiveLiters
             target.fuelType = fuelType
             target.isFullTank = isFullTank
         } else {
@@ -301,6 +313,7 @@ struct ExpenseFormView: View {
             vehicle.expenses.append(target)
         }
         try? context.save()
+        Haptics.success()
         dismiss()
     }
 

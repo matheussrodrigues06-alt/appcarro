@@ -6,7 +6,13 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    # Roda em dois tipos de Mac ao mesmo tempo: basta um terminar para ter o .ipa.
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -15,6 +21,7 @@ jobs:
 
       - name: Compilar
         run: |
+          set -o pipefail
           xcodebuild \
             -project CarroGastos.xcodeproj \
             -target CarroGastos \
@@ -24,7 +31,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
+            build 2>&1 | tee build.log | grep -E "error:|warning:|BUILD" || true
+          test -d build/Release-iphoneos/CarroGastos.app
+
+      - name: Erros de compilação
+        if: failure()
+        run: grep -E "error:" build.log | sort -u | head -50 || true
 
       - name: Gerar .ipa
         run: |
@@ -34,5 +46,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CarroGastos-ipa
+          name: CarroGastos-ipa-${{ matrix.runner }}
           path: CarroGastos.ipa

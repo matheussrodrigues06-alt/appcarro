@@ -31,6 +31,7 @@ struct RootView: View {
     @State private var tab: AppTab = .home
     @State private var showingGarage = false
     @State private var showingSettings = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private var selectedVehicle: Vehicle? {
         vehicles.first { $0.uuid.uuidString == selectedID } ?? vehicles.first
@@ -65,6 +66,12 @@ struct RootView: View {
         }
         .sheet(isPresented: $showingGarage) {
             GarageView(selectedID: $selectedID)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Reagenda os lembretes sempre que o app vai para segundo plano
+            if phase == .background {
+                ReminderScheduler.reschedule(vehicles: vehicles)
+            }
         }
     }
 }

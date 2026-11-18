@@ -57,6 +57,7 @@ struct OdometerFormView: View {
         vehicle.odometer = value
         vehicle.odometerUpdatedAt = .now
         try? context.save()
+        Haptics.success()
         dismiss()
     }
 }

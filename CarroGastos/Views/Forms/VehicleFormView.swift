@@ -99,6 +99,7 @@ struct VehicleFormView: View {
             if km < target.initialOdometer { target.initialOdometer = km }
         }
         try? context.save()
+        Haptics.success()
         dismiss()
     }
 }

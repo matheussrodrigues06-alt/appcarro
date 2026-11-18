@@ -16,10 +16,24 @@ Visual escuro com destaque verde-limão e barra de abas flutuante.
   custo por km, média mensal e gráfico dos últimos 6 meses
 - **Garagem**: vários carros, com status de cada um (botão do carro, à esquerda da barra)
 - **Comprovantes**: anexe foto da nota/recibo em qualquer registro
-- **Ajustes** (botão à direita da barra): editar carro, FIPE, bateria, exportar CSV
+- **Notificações**: serviços vencendo, IPVA, documentação pendente, bateria e lembrete semanal de atualizar o km
+- **Backup e restauração** em JSON (inclui fotos), além de exportação em CSV
+- **Ajustes** (botão à direita da barra): editar carro, FIPE, bateria, notificações e backup
 - Dados salvos localmente no iPhone (SwiftData), sem login
 
-## Como rodar
+## Como instalar só com Windows (sem Mac)
+
+1. A cada `push`, o GitHub Actions compila o app num Mac na nuvem
+   (aba **Actions** → build mais recente → **Artifacts** → `CarroGastos-ipa-...`).
+2. Descompacte o artifact baixado para obter o `CarroGastos.ipa`.
+3. Instale o **iTunes** e o **iCloud** (versões do site da Apple, não da Microsoft Store) e o **Sideloadly**.
+4. Conecte o iPhone, arraste o `.ipa` no Sideloadly e entre com sua Apple ID.
+5. No iPhone: ative *Ajustes → Privacidade e Segurança → Modo de Desenvolvedor* e confie no certificado em
+   *Ajustes → Geral → VPN e Gerenciamento de Dispositivos*.
+
+Com Apple ID gratuita, reinstale a cada 7 dias (os dados são mantidos). Faça backups em *Ajustes → Backup*.
+
+## Como rodar com Mac
 
 Você precisa de um **Mac com Xcode 16 ou mais recente**.
 

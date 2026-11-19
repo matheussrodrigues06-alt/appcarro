@@ -234,7 +234,7 @@ struct AssistantChatView: View {
                 Text(action.detail).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if !isUndone {
+            if !isUndone, action.expense != nil || action.previousOdometer != nil {
                 Button("Desfazer") {
                     engine?.actions.undo(action)
                     undone.insert(action.id)

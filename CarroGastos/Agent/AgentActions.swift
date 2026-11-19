@@ -94,6 +94,23 @@ final class AgentActions {
         return "Hodômetro atualizado para \(km.km).\(warning)"
     }
 
+    /// Completa o último abastecimento com litros, preço por litro ou km ditos depois.
+    func updateFuel(_ expense: Expense, liters: Double?, pricePerLiter: Double?, odometer: Int?) -> String {
+        if let liters, liters > 0 {
+            expense.liters = liters
+        } else if let pricePerLiter, pricePerLiter > 0, expense.amount > 0 {
+            expense.liters = expense.amount / pricePerLiter
+        }
+        if let odometer, odometer > 0 { expense.odometer = odometer }
+        try? context.save()
+        var parts = [expense.amount.brl]
+        if let l = expense.liters { parts.append("\(l.formatted(.number.precision(.fractionLength(2)))) L") }
+        if let km = expense.odometer { parts.append(km.km) }
+        let detail = parts.joined(separator: " · ")
+        performed.append(PerformedAction(icon: "fuelpump.fill", title: "Abastecimento atualizado", detail: detail))
+        return "Atualizei o abastecimento: \(detail) ✅"
+    }
+
     // MARK: Consultar
 
     func summary(period: String) -> String {

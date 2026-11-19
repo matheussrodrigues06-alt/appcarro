@@ -127,6 +127,7 @@ struct SummaryTool: Tool {
 final class AssistantEngine {
     let actions: AgentActions
     private var session: LanguageModelSession
+    private let quick = QuickCommandHandler()
 
     init(actions: AgentActions) {
         self.actions = actions
@@ -160,6 +161,10 @@ final class AssistantEngine {
 
     func send(_ text: String) async -> (reply: String, performed: [AgentActions.PerformedAction]) {
         actions.beginTurn()
+        // Lançamentos simples são feitos direto pelo app (sempre funcionam).
+        if let reply = quick.handle(text, actions: actions) {
+            return (reply, actions.performed)
+        }
         do {
             let response = try await session.respond(to: text)
             return (response.content, actions.performed)
@@ -175,6 +180,7 @@ final class AssistantEngine {
     }
 
     func reset() {
+        quick.reset()
         session = Self.makeSession(actions: actions)
     }
 }

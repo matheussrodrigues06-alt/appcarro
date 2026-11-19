@@ -51,6 +51,12 @@ struct TollPlaza: Hashable, Identifiable, Decodable {
 
     var isOfficial: Bool { oficial ?? false }
 
+    /// Localização com só 2 casas decimais (a ANTT arredonda algumas praças).
+    var hasRoundedLocation: Bool {
+        func rounded(_ v: Double) -> Bool { abs(v * 100 - (v * 100).rounded()) < 0.000_1 }
+        return rounded(lat) && rounded(lon)
+    }
+
     var estimateNote: String? {
         if isOfficial { return nil }
         switch estimado {

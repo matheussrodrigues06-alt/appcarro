@@ -389,13 +389,13 @@ struct TripPlannerView: View {
 
     // MARK: Pedágios no caminho
 
-    /// Praças a até ~900 m da rota, na ordem do caminho, sem repetir a mesma praça nos dois sentidos.
+    /// Praças perto da rota (até ~900 m; 3 km se a localização vier arredondada), na ordem do caminho, sem repetir a mesma praça nos dois sentidos.
     static func tolls(on route: MKRoute, from plazas: [TollPlaza]) -> [TollPlaza] {
         let polyline = route.polyline
         let count = polyline.pointCount
         guard count > 1, !plazas.isEmpty else { return [] }
         let points = polyline.points()
-        let margin = MKMapPointsPerMeterAtLatitude(polyline.coordinate.latitude) * 3000
+        let margin = MKMapPointsPerMeterAtLatitude(polyline.coordinate.latitude) * 4000
         let box = polyline.boundingMapRect.insetBy(dx: -margin, dy: -margin)
 
         var found: [(plaza: TollPlaza, index: Int)] = []
@@ -411,7 +411,10 @@ struct TripPlannerView: View {
                     bestIndex = i
                 }
             }
-            if best * MKMetersPerMapPointAtLatitude(plaza.lat) <= 900 {
+            // Algumas praças vêm da ANTT com localização arredondada (2 casas decimais, até ~1 km de erro):
+            // para essas, aceita uma distância maior até a rota.
+            let limit: Double = plaza.hasRoundedLocation ? 3000 : 900
+            if best * MKMetersPerMapPointAtLatitude(plaza.lat) <= limit {
                 found.append((plaza, bestIndex))
             }
         }

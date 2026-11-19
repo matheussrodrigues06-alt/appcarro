@@ -14,10 +14,10 @@ B = "https://dados.antt.gov.br/dataset/"
 CKAN = "https://dados.antt.gov.br/api/3/action/package_show?id="
 
 
-def get(url, timeout=300):
+def get(url, timeout=300, tries=3):
     if not url:
         return None
-    for attempt in range(3):
+    for attempt in range(tries):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
                 return r.read()
@@ -85,23 +85,18 @@ FALLBACK = {
 
 
 def resources(package):
-    """Lista os arquivos de um conjunto da ANTT (busca no portal; se falhar, usa os endereços conhecidos)."""
+    """Arquivos de um conjunto da ANTT: consulta rápida ao portal (para achar arquivos novos)
+    somada aos endereços conhecidos (que funcionam mesmo se o portal estiver lento)."""
     found = []
-    for url in (CKAN + package, "https://dados.antt.gov.br/api/3/action/package_search?q=" + package + "&rows=10"):
-        raw = get(url, 60)
-        if not raw:
-            continue
+    raw = get(CKAN + package, 25, tries=1)
+    if raw:
         try:
-            res = json.loads(raw)["result"]
-            pkgs = res["results"] if "results" in res else [res]
-            for pk in pkgs:
-                if pk.get("name") == package:
-                    found = pk.get("resources", [])
-            if found:
-                break
+            found = json.loads(raw)["result"].get("resources", [])
         except Exception as e:
             print("  resposta inesperada", e)
-    return found or FALLBACK.get(package, [])
+    known = FALLBACK.get(package, [])
+    urls = {r.get("url") for r in found}
+    return found + [r for r in known if r["url"] not in urls]
 
 
 # ---------- Praças (localização) ----------

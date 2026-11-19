@@ -63,13 +63,13 @@ enum FipeAPI {
     }
 }
 
-/// Mantém a FIPE dos carros vinculados sempre atualizada (uma vez por mês, ao abrir o app).
+/// Mantém a FIPE dos carros vinculados sempre atualizada (confere a cada 3 dias, ao abrir o app).
 @MainActor
 enum FipeUpdater {
     static func refreshIfNeeded(_ vehicles: [Vehicle], context: ModelContext) async {
         for vehicle in vehicles where vehicle.isFipeLinked {
-            if let last = vehicle.fipeUpdatedAt,
-               Calendar.current.isDate(last, equalTo: .now, toGranularity: .month) {
+            // Confere a cada 3 dias (a tabela muda uma vez por mês; a consulta é grátis).
+            if let last = vehicle.fipeUpdatedAt, Date().timeIntervalSince(last) < 3 * 86_400 {
                 continue
             }
             await update(vehicle, context: context)

@@ -29,6 +29,7 @@ struct VehicleDTO: Codable {
     var fipeModelCode: String?
     var fipeYearCode: String?
     var fipeModelName: String?
+    var photoData: Data?
 }
 
 struct ExpenseDTO: Codable {
@@ -68,7 +69,8 @@ enum BackupService {
                 fipeBrandCode: v.fipeBrandCode,
                 fipeModelCode: v.fipeModelCode,
                 fipeYearCode: v.fipeYearCode,
-                fipeModelName: v.fipeModelName
+                fipeModelName: v.fipeModelName,
+                photoData: v.photoData
             )
         })
         let encoder = JSONEncoder()
@@ -115,6 +117,7 @@ enum BackupService {
             vehicle.fipeModelCode = dto.fipeModelCode ?? ""
             vehicle.fipeYearCode = dto.fipeYearCode ?? ""
             vehicle.fipeModelName = dto.fipeModelName ?? ""
+            vehicle.photoData = dto.photoData
             context.insert(vehicle)
 
             for e in dto.expenses {

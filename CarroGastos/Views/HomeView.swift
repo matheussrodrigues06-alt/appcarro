@@ -64,15 +64,16 @@ struct HomeView: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 26) {
+                    VStack(alignment: .leading, spacing: 22) {
                         heroCard
                         quickActions
                         gettingStarted
-                        alertsSection.id("alerts")
-                        FuelPriceCard(vehicle: vehicle) { sheet = .city }
-                        toolsSection
-                        batteryCard
+                        pendingSection.id("alerts")
+                        if FuelPriceStore.shared.hasCity {
+                            FuelPriceCard(vehicle: vehicle) { sheet = .city }
+                        }
                         recentSection
+                        moreSection
                     }
                     .padding(16)
                 }
@@ -105,39 +106,54 @@ struct HomeView: View {
     // MARK: Cartão do carro
 
     private var heroCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(vehicle.subtitle.isEmpty ? "Meu carro" : vehicle.subtitle)
-                        .font(.rounded(14, .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+        let items = alerts
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if !vehicle.subtitle.isEmpty {
+                        Text(vehicle.subtitle)
+                            .font(.rounded(14, .medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Text(vehicle.name)
-                        .font(.rounded(32, .bold))
+                        .font(.rounded(30, .bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
+                    if !vehicle.plate.isEmpty {
+                        MercosulPlate(plate: vehicle.plate)
+                            .padding(.top, 2)
+                    }
                 }
-                Spacer()
-                Button { scrollToAlerts = true } label: {
-                    StatusBadge(status: vehicle.overallStatus)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Mostra o que precisa de atenção")
+                Spacer(minLength: 0)
+                CarPhotoButton(vehicle: vehicle)
             }
-            if !vehicle.plate.isEmpty {
-                MercosulPlate(plate: vehicle.plate)
-            }
-            pendingSummary
-            Divider()
+
+            statusRow(items)
+
+            // Cada número é tocável: leva para onde ele é atualizado ou detalhado.
             HStack(alignment: .top, spacing: 8) {
-                    HeroMetric(title: "Hodômetro", value: vehicle.currentOdometer.formatted(.number), unit: "km")
+                Button { sheet = .odometer } label: {
+                    HeroMetric(title: "Km atual", value: vehicle.currentOdometer.formatted(.number), unit: "km")
+                }
+                Button { tab = .finance } label: {
                     HeroMetric(
-                        title: "Consumo",
+                        title: "Consumo médio",
                         value: vehicle.fuelEfficiency.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "—",
                         unit: vehicle.fuelEfficiency == nil ? "" : "km/l"
                     )
-                    HeroMetric(title: "Este mês", value: monthTotal.brlNoCents, unit: "")
+                }
+                Button { tab = .finance } label: {
+                    HeroMetric(title: "Gasto no mês", value: monthTotal.brlNoCents, unit: "")
+                }
             }
+            .buttonStyle(.plain)
+            if vehicle.fuelEfficiency == nil, vehicle.lastFuel != nil {
+                Text("O consumo aparece depois de 2 abastecimentos com tanque cheio e km.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            fipeRow
             budgetBar
         }
         .padding(20)
@@ -145,30 +161,94 @@ struct HomeView: View {
         .heroGlass(cornerRadius: 24)
     }
 
-    /// Explica o selo "Atenção"/"Vencido": o que está pendente, com toque para ver.
-    @ViewBuilder
-    private var pendingSummary: some View {
-        let items = alerts
-        if let first = items.first {
-            Button { scrollToAlerts = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: vehicle.overallStatus.icon)
-                        .foregroundStyle(vehicle.overallStatus.color)
-                    Text(items.count == 1 ? "Pendente: \(first.title)" : "\(items.count) pendências: \(first.title) e mais \(items.count - 1)")
-                        .font(.rounded(14, .medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
+    /// Situação do carro em uma frase, sempre explicada e tocável.
+    private func statusRow(_ items: [AlertItem]) -> some View {
+        let status = vehicle.overallStatus
+        let text: String
+        if items.isEmpty {
+            text = "Tudo em dia: serviços e documentos"
+        } else if items.count == 1 {
+            text = "Atenção: \(items[0].title)"
+        } else {
+            text = "\(items.count) itens precisam de atenção"
+        }
+        return Button {
+            if !items.isEmpty { scrollToAlerts = true }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: items.isEmpty ? "checkmark.seal.fill" : status.icon)
+                    .foregroundStyle(items.isEmpty ? Color.success : status.color)
+                Text(text)
+                    .font(.rounded(14, .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 4)
+                if !items.isEmpty {
                     Text("Ver").font(.rounded(14, .semibold)).foregroundStyle(Color.brand)
                     Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(Color.brand)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(vehicle.overallStatus.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background((items.isEmpty ? Color.success : status.color).opacity(0.12),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityHint(items.isEmpty ? "" : "Mostra o que precisa de atenção")
+    }
+
+    /// Valor FIPE com a data da última atualização (atualiza sozinho).
+    private var fipeRow: some View {
+        Button { sheet = .fipe } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "tag.fill")
+                    .foregroundStyle(Color.docsTeal)
+                    .frame(width: 22)
+                if vehicle.isFipeLinked, vehicle.fipeValue > 0 {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("FIPE \(vehicle.fipeValue.brlNoCents)")
+                            .font(.rounded(15, .semibold))
+                            .foregroundStyle(.primary)
+                        Text(fipeUpdateText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if vehicle.fipeValue > 0 {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("FIPE \(vehicle.fipeValue.brlNoCents) (digitada)")
+                            .font(.rounded(15, .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Toque para escolher o modelo e atualizar sozinho")
+                            .font(.caption)
+                            .foregroundStyle(Color.brand)
+                    }
+                } else {
+                    Text("Ver valor FIPE do carro")
+                        .font(.rounded(15, .semibold))
+                        .foregroundStyle(.primary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.docsTeal.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var fipeUpdateText: String {
+        var parts: [String] = []
+        if let date = vehicle.fipeUpdatedAt {
+            parts.append("Atualizada em \(date.formatted(date: .numeric, time: .omitted))")
+        }
+        if !vehicle.fipeReference.isEmpty {
+            parts.append("tabela de \(vehicle.fipeReference)")
+        }
+        return parts.isEmpty ? "Atualiza sozinha" : parts.joined(separator: " · ")
     }
 
     @ViewBuilder
@@ -176,21 +256,26 @@ struct HomeView: View {
         if vehicle.monthlyBudget > 0 {
             let ratio = monthTotal / vehicle.monthlyBudget
             let color = ratio > 1 ? Color.danger : (ratio > 0.85 ? Color.warning : Color.brand)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Orçamento do mês").font(.rounded(13, .medium)).foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(monthTotal.brlNoCents) de \(vehicle.monthlyBudget.brlNoCents)")
-                        .font(.rounded(13, .semibold))
-                        .monospacedDigit()
+            Button { sheet = .budget } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Orçamento do mês").font(.rounded(13, .medium)).foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(monthTotal.brlNoCents) de \(vehicle.monthlyBudget.brlNoCents)")
+                            .font(.rounded(13, .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.primary)
+                    }
+                    ProgressView(value: min(ratio, 1)).tint(color)
+                    if ratio > 1 {
+                        Text("Você passou \((monthTotal - vehicle.monthlyBudget).brlNoCents) do orçamento.")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.danger)
+                    }
                 }
-                ProgressView(value: min(ratio, 1)).tint(color)
-                if ratio > 1 {
-                    Text("Você passou \((monthTotal - vehicle.monthlyBudget).brlNoCents) do orçamento.")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.danger)
-                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
     }
 
@@ -202,15 +287,16 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             Button { sheet = .odometer } label: { QuickActionLabel(icon: "speedometer", title: "Atualizar km") }
                 .buttonStyle(.plain)
-            Button { sheet = .new(.maintenance) } label: { QuickActionLabel(icon: "wrench.and.screwdriver.fill", title: "Serviço") }
-                .buttonStyle(.plain)
             Menu {
+                Button("Serviço / manutenção", systemImage: ExpenseCategory.maintenance.icon) { sheet = .new(.maintenance) }
                 Button("Multa", systemImage: ExpenseCategory.fine.icon) { sheet = .new(.fine) }
                 Button("Seguro", systemImage: ExpenseCategory.insurance.icon) { sheet = .new(.insurance) }
-                Button("Taxa", systemImage: ExpenseCategory.fee.icon) { sheet = .new(.fee) }
+                Button("IPVA", systemImage: ExpenseCategory.ipva.icon) { sheet = .new(.ipva) }
+                Button("Licenciamento", systemImage: ExpenseCategory.licensing.icon) { sheet = .new(.licensing) }
+                Button("Taxa, pedágio, estacionamento", systemImage: ExpenseCategory.fee.icon) { sheet = .new(.fee) }
                 Button("Outro gasto", systemImage: ExpenseCategory.other.icon) { sheet = .new(.other) }
             } label: {
-                QuickActionLabel(icon: "plus", title: "Outro gasto")
+                QuickActionLabel(icon: "plus", title: "Lançar gasto")
             }
         }
     }
@@ -228,22 +314,22 @@ struct HomeView: View {
     private var steps: [Step] {
         [
             Step(id: "fuel", title: "Registre um abastecimento", icon: "fuelpump.fill", done: vehicle.lastFuel != nil) { sheet = .new(.fuel) },
-            Step(id: "fipe", title: "Escolher o modelo na Tabela FIPE", icon: "tag.fill", done: vehicle.isFipeLinked || vehicle.fipeValue > 0) { sheet = .fipe },
-            Step(id: "budget", title: "Defina um orçamento mensal", icon: "target", done: vehicle.monthlyBudget > 0) { sheet = .budget },
-            Step(id: "battery", title: "Informe a troca da bateria", icon: "minus.plus.batteryblock", done: vehicle.batteryChangedAt != nil) { sheet = .battery },
+            Step(id: "fipe", title: "Escolha o modelo na Tabela FIPE", icon: "tag.fill", done: vehicle.isFipeLinked || vehicle.fipeValue > 0) { sheet = .fipe },
+            Step(id: "city", title: "Escolha sua cidade (preço do combustível)", icon: "mappin.and.ellipse", done: FuelPriceStore.shared.hasCity) { sheet = .city },
             Step(id: "notify", title: "Ative os lembretes", icon: "bell.badge.fill", done: notificationsEnabled) { enableNotifications() },
         ]
     }
 
     @ViewBuilder
     private var gettingStarted: some View {
-        let done = steps.filter(\.done).count
-        if !gettingStartedDismissed && done < steps.count {
-            VStack(alignment: .leading, spacing: 14) {
+        let list = steps
+        let done = list.filter(\.done).count
+        if !gettingStartedDismissed && done < list.count {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Primeiros passos").font(.rounded(18, .bold))
-                        Text("\(done) de \(steps.count) concluídos · leva 1 minuto")
+                        Text("Para começar").font(.rounded(18, .bold))
+                        Text("\(done) de \(list.count) feitos · toque em cada item")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -257,25 +343,20 @@ struct HomeView: View {
                             .frame(width: 30, height: 30)
                             .background(Color.secondary.opacity(0.12), in: Circle())
                     }
-                    .accessibilityLabel("Dispensar primeiros passos")
+                    .accessibilityLabel("Esconder")
                 }
-                ProgressView(value: Double(done), total: Double(steps.count))
-                    .tint(Color.brand)
                 VStack(spacing: 2) {
-                    ForEach(steps) { step in
+                    ForEach(list) { step in
                         Button(action: step.action) {
                             HStack(spacing: 12) {
-                                Image(systemName: step.done ? "checkmark.circle.fill" : "circle")
-                                    .font(.title3)
-                                    .foregroundStyle(step.done ? Color.success : Color.secondary)
-                                Image(systemName: step.icon)
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.brand)
-                                    .frame(width: 22)
+                                Image(systemName: step.done ? "checkmark.circle.fill" : step.icon)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(step.done ? Color.success : Color.brand)
+                                    .frame(width: 26)
                                 Text(step.title)
                                     .font(.rounded(15, .medium))
-                                    .strikethrough(step.done)
                                     .foregroundStyle(step.done ? Color.secondary : Color.primary)
+                                    .multilineTextAlignment(.leading)
                                 Spacer()
                                 if !step.done {
                                     Image(systemName: "chevron.right")
@@ -283,7 +364,7 @@ struct HomeView: View {
                                         .foregroundStyle(.tertiary)
                                 }
                             }
-                            .padding(.vertical, 7)
+                            .padding(.vertical, 8)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -307,45 +388,24 @@ struct HomeView: View {
         }
     }
 
-    // MARK: Ferramentas
+    // MARK: Pendências (só aparece quando há algo)
 
-    private var toolsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Ferramentas")
-            HStack(spacing: 12) {
-                ToolCard(icon: "drop.halffull", color: Color.docsTeal,
-                         title: "Etanol ou gasolina?", subtitle: "Qual compensa hoje") { sheet = .fuelCompare }
-                ToolCard(icon: "map.fill", color: Color.serviceViolet,
-                         title: "Custo de viagem", subtitle: "Combustível e pedágio") { sheet = .trip }
-            }
-        }
-    }
-
-    // MARK: Atenção
-
-    private var alertsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Atenção")
-            VStack(spacing: 0) {
-                if alerts.isEmpty {
-                    HStack(spacing: 12) {
-                        IconTile(systemName: "checkmark.seal.fill", color: Color.success, size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Nada pendente").font(.rounded(16, .semibold))
-                            Text("Serviços e documentos em dia").font(.subheadline).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(14)
-                } else {
-                    ForEach(Array(alerts.enumerated()), id: \.element.id) { index, item in
+    @ViewBuilder
+    private var pendingSection: some View {
+        let items = alerts
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "Precisa de atenção")
+                VStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         if index > 0 { Divider().padding(.leading, 66) }
                         Button { tab = item.target } label: {
                             HStack(spacing: 12) {
                                 IconTile(systemName: item.icon, color: item.color, size: 40)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.title).font(.rounded(16, .semibold)).foregroundStyle(.primary)
-                                    Text(item.subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                                    Text(item.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.leading)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
@@ -356,65 +416,64 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .glassCard()
             }
-            .glassCard()
         }
     }
 
-    // MARK: Bateria
+    // MARK: Mais (ferramentas e bateria, em lista simples)
 
     private var batteryColor: Color {
-        guard let remaining = vehicle.batteryRemaining else { return Color.brand }
+        guard let remaining = vehicle.batteryRemaining else { return Color.secondary }
         if remaining < 0.15 { return Color.danger }
         if remaining < 0.35 { return Color.warning }
         return Color.success
     }
 
-    private var batteryCard: some View {
-        Button { sheet = .battery } label: {
-            HStack(spacing: 14) {
-                IconTile(systemName: "minus.plus.batteryblock", color: batteryColor, size: 44)
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Bateria 12V").font(.rounded(16, .semibold))
-                        Spacer()
-                        Text(vehicle.batteryRemaining.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "Informar")
-                            .font(.rounded(14, .semibold))
-                            .foregroundStyle(batteryColor)
-                    }
-                    if let remaining = vehicle.batteryRemaining, let months = vehicle.batteryAgeMonths {
-                        ProgressView(value: remaining).tint(batteryColor)
-                        Text(remaining > 0
-                             ? "Trocada há \(months) \(months == 1 ? "mês" : "meses") · cerca de \(max(1, 36 - months)) meses restantes"
-                             : "Passou da vida útil média. Vale fazer um teste de carga.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Informe a data da última troca para estimar a vida útil.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+    private var batterySubtitle: String {
+        guard let remaining = vehicle.batteryRemaining, let months = vehicle.batteryAgeMonths else {
+            return "Informe quando trocou para saber a vida útil"
+        }
+        if remaining <= 0 { return "Passou da vida útil média. Vale um teste de carga." }
+        return "Trocada há \(months) \(months == 1 ? "mês" : "meses") · \(remaining.formatted(.percent.precision(.fractionLength(0)))) de vida"
+    }
+
+    private var moreSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Ferramentas")
+            VStack(spacing: 0) {
+                MoreRow(icon: "drop.halffull", color: Color.docsTeal, title: "Etanol ou gasolina?",
+                        subtitle: "Descubra qual compensa hoje") { sheet = .fuelCompare }
+                Divider().padding(.leading, 66)
+                MoreRow(icon: "map.fill", color: Color.serviceViolet, title: "Custo de viagem",
+                        subtitle: "Combustível e pedágio da viagem") { sheet = .trip }
+                Divider().padding(.leading, 66)
+                MoreRow(icon: "minus.plus.batteryblock", color: batteryColor, title: "Bateria 12V",
+                        subtitle: batterySubtitle) { sheet = .battery }
+                Divider().padding(.leading, 66)
+                MoreRow(icon: "target", color: Color.brand, title: "Orçamento do mês",
+                        subtitle: vehicle.monthlyBudget > 0 ? "Limite de \(vehicle.monthlyBudget.brlNoCents) por mês" : "Defina um limite de gastos") { sheet = .budget }
+                if !FuelPriceStore.shared.hasCity {
+                    Divider().padding(.leading, 66)
+                    MoreRow(icon: "fuelpump.fill", color: Color.fuelBlue, title: "Preço do combustível",
+                            subtitle: "Média da sua cidade (ANP)") { sheet = .city }
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .glassCard()
-            .foregroundStyle(.primary)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: Atividade recente
 
     private var recentSection: some View {
-        let recent = Array(vehicle.sortedExpenses.prefix(5))
+        let recent = Array(vehicle.sortedExpenses.prefix(4))
         return VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Atividade recente", actionTitle: recent.isEmpty ? nil : "Ver todos") {
+            SectionHeader(title: "Últimos registros", actionTitle: recent.isEmpty ? nil : "Ver todos") {
                 tab = .finance
             }
             if recent.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Nenhum registro ainda. Que tal começar pelo próximo abastecimento?")
+                    Text("Nada registrado ainda. Comece pelo próximo abastecimento.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Button("Registrar abastecimento") { sheet = .new(.fuel) }
@@ -439,7 +498,8 @@ struct HomeView: View {
     }
 }
 
-struct ToolCard: View {
+/// Linha tocável de ferramenta: ícone, título, explicação curta e seta.
+struct MoreRow: View {
     let icon: String
     let color: Color
     let title: String
@@ -448,22 +508,17 @@ struct ToolCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
                 IconTile(systemName: icon, color: color, size: 40)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.rounded(15, .semibold))
-                        .foregroundStyle(.primary)
+                    Text(title).font(.rounded(16, .semibold)).foregroundStyle(.primary)
+                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
             }
             .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-            .glassCard()
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -481,7 +536,7 @@ struct HeroMetric: View {
                 .font(.rounded(12, .medium))
                 .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value).font(.rounded(20, .bold)).monospacedDigit()
+                Text(value).font(.rounded(20, .bold)).monospacedDigit().foregroundStyle(.primary)
                 if !unit.isEmpty {
                     Text(unit).font(.rounded(12, .medium)).foregroundStyle(.secondary)
                 }
@@ -490,6 +545,7 @@ struct HeroMetric: View {
             .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 

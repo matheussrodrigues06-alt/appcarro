@@ -20,6 +20,8 @@ final class Vehicle {
     var ipvaRate: Double = 4.0
     /// Limite de gastos por mês (0 = sem orçamento).
     var monthlyBudget: Double = 0
+    /// Foto do carro (opcional), escolhida pela pessoa.
+    @Attribute(.externalStorage) var photoData: Data?
     // Tabela FIPE automática (códigos da API pública)
     var fipeBrandCode: String = ""
     var fipeModelCode: String = ""

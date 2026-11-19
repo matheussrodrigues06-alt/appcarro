@@ -9,6 +9,7 @@ struct RootView: View {
     @Query(sort: \Vehicle.createdAt) private var vehicles: [Vehicle]
     @AppStorage("selectedVehicleID") private var selectedID: String = ""
     @State private var tab: AppTab = .home
+    @AppStorage("receiptFlagMigrated") private var receiptFlagMigrated = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var context
 
@@ -52,11 +53,26 @@ struct RootView: View {
                 break
             }
         }
-        .task { await refreshExternalData() }
+        .task {
+            markExistingReceipts()
+            await refreshExternalData()
+        }
     }
 }
 
 extension RootView {
+    /// Uma vez só: marca os registros antigos que já tinham comprovante (ícone de clipe nas listas).
+    func markExistingReceipts() {
+        guard !receiptFlagMigrated else { return }
+        for vehicle in vehicles {
+            for expense in vehicle.expenses where !expense.hasReceiptStored && expense.receiptData != nil {
+                expense.hasReceiptStored = true
+            }
+        }
+        try? context.save()
+        receiptFlagMigrated = true
+    }
+
     /// FIPE (uma vez por mês) e preço médio da ANP (algumas vezes por dia, no máximo).
     @MainActor
     func refreshExternalData() async {

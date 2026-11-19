@@ -226,6 +226,15 @@ struct TripPlannerView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
+                            if overrides[toll.id] == nil, let note = toll.estimateNote {
+                                Text(note)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.warning)
+                            } else if overrides[toll.id] != nil {
+                                Text("Valor informado por você")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.success)
+                            }
                         }
                         Spacer()
                         if let v = value(of: toll) {
@@ -241,6 +250,7 @@ struct TripPlannerView: View {
                     }
                     .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
             FormNumberRow(label: "Outros pedágios (R$, só ida)", text: $extraTollText, placeholder: "0,00")
         } header: {

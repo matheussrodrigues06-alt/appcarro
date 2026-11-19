@@ -209,6 +209,24 @@ for p in pracas:
         "sentido": (p.get("sentido") or "").strip(), "valor": valor,
     })
 
+# Praças sem receita própria (free flow e concessões novas): média da concessionária; se não houver, média do estado.
+by_conc, by_uf = defaultdict(list), defaultdict(list)
+for o in out:
+    if o["valor"]:
+        by_conc[fold(o["concessionaria"])].append(o["valor"])
+        by_uf[o["uf"]].append(o["valor"])
+all_values = [o["valor"] for o in out if o["valor"]]
+for o in out:
+    o["estimado"] = None
+    if o["valor"]:
+        continue
+    conc_vals = by_conc.get(fold(o["concessionaria"]))
+    uf_vals = by_uf.get(o["uf"]) or all_values
+    if conc_vals:
+        o["valor"], o["estimado"] = round(statistics.median(conc_vals) * 10) / 10, "concessionaria"
+    elif uf_vals:
+        o["valor"], o["estimado"] = round(statistics.median(uf_vals) * 10) / 10, "estado"
+
 os.makedirs("data", exist_ok=True)
 if len(out) >= 100:
     with open("data/pedagios.json", "w", encoding="utf-8") as f:

@@ -41,9 +41,19 @@ struct TollPlaza: Hashable, Identifiable, Decodable {
     let freeFlow: Bool
     let sentido: String?
     let valor: Double?
+    /// nil = calculado para esta praça; "concessionaria"/"estado" = média (praça sem dados próprios).
+    let estimado: String?
 
     var id: String { "\(concessionaria)|\(nome)|\(lat)|\(lon)" }
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lon) }
+
+    var estimateNote: String? {
+        switch estimado {
+        case "concessionaria": return "Estimado pela média da concessionária"
+        case "estado": return "Estimado pela média do estado"
+        default: return nil
+        }
+    }
 
     /// Nome sem códigos internos ("P03 ORTIGUEIRA" → "Ortigueira").
     var displayName: String {

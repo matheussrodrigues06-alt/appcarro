@@ -6,6 +6,7 @@ on:
       - 'data/**'
       - '.github/scripts/**'
       - '.github/workflows/combustivel.yml'
+      - '.github/workflows/pedagios.yml'
       - '**.md'
   workflow_dispatch:
 

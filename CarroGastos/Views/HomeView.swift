@@ -94,7 +94,7 @@ struct HomeView: View {
                 case .fipe: FipeFormView(vehicle: vehicle)
                 case .budget: BudgetFormView(vehicle: vehicle)
                 case .fuelCompare: FuelCompareView(vehicle: vehicle)
-                case .trip: TripCostView(vehicle: vehicle)
+                case .trip: TripPlannerView(vehicle: vehicle)
                 case .city: FuelCityPickerView()
                 case .new(let category): ExpenseFormView(vehicle: vehicle, category: category)
                 case .edit(let expense): ExpenseFormView(vehicle: vehicle, expense: expense)
@@ -315,7 +315,7 @@ struct HomeView: View {
         [
             Step(id: "fuel", title: "Registre um abastecimento", icon: "fuelpump.fill", done: vehicle.lastFuel != nil) { sheet = .new(.fuel) },
             Step(id: "fipe", title: "Escolha o modelo na Tabela FIPE", icon: "tag.fill", done: vehicle.isFipeLinked || vehicle.fipeValue > 0) { sheet = .fipe },
-            Step(id: "city", title: "Escolha sua cidade (preço do combustível)", icon: "mappin.and.ellipse", done: FuelPriceStore.shared.hasCity) { sheet = .city },
+            Step(id: "city", title: "Diga onde você mora (preço do combustível e viagens)", icon: "house.and.flag", done: FuelPriceStore.shared.hasHome) { sheet = .city },
             Step(id: "notify", title: "Ative os lembretes", icon: "bell.badge.fill", done: notificationsEnabled) { enableNotifications() },
         ]
     }
@@ -445,19 +445,17 @@ struct HomeView: View {
                 MoreRow(icon: "drop.halffull", color: Color.docsTeal, title: "Etanol ou gasolina?",
                         subtitle: "Descubra qual compensa hoje") { sheet = .fuelCompare }
                 Divider().padding(.leading, 66)
-                MoreRow(icon: "map.fill", color: Color.serviceViolet, title: "Custo de viagem",
-                        subtitle: "Combustível e pedágio da viagem") { sheet = .trip }
+                MoreRow(icon: "map.fill", color: Color.serviceViolet, title: "Planejar viagem",
+                        subtitle: "Mapa, pedágios, combustível e tanques") { sheet = .trip }
                 Divider().padding(.leading, 66)
                 MoreRow(icon: "minus.plus.batteryblock", color: batteryColor, title: "Bateria 12V",
                         subtitle: batterySubtitle) { sheet = .battery }
                 Divider().padding(.leading, 66)
                 MoreRow(icon: "target", color: Color.brand, title: "Orçamento do mês",
                         subtitle: vehicle.monthlyBudget > 0 ? "Limite de \(vehicle.monthlyBudget.brlNoCents) por mês" : "Defina um limite de gastos") { sheet = .budget }
-                if !FuelPriceStore.shared.hasCity {
-                    Divider().padding(.leading, 66)
-                    MoreRow(icon: "fuelpump.fill", color: Color.fuelBlue, title: "Preço do combustível",
-                            subtitle: "Média da sua cidade (ANP)") { sheet = .city }
-                }
+                Divider().padding(.leading, 66)
+                MoreRow(icon: "house.and.flag", color: Color.fuelBlue, title: "Onde você mora",
+                        subtitle: FuelPriceStore.shared.home?.label ?? "Para o preço do combustível e as viagens") { sheet = .city }
             }
             .glassCard()
         }

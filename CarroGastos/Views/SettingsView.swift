@@ -33,9 +33,9 @@ struct SettingsView: View {
                     }
                     Button { choosingCity = true } label: {
                         LabeledContent {
-                            Text(FuelPriceStore.shared.hasCity ? FuelPriceStore.shared.cityLabel : "Escolher")
+                            Text(FuelPriceStore.shared.hasCity ? FuelPriceStore.shared.placeLabel : "Escolher")
                         } label: {
-                            Label("Cidade (preço do combustível)", systemImage: "mappin.and.ellipse")
+                            Label("Onde você mora", systemImage: "house.and.flag")
                         }
                     }
                     Button { editingBudget = true } label: {

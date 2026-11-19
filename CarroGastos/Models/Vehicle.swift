@@ -22,6 +22,8 @@ final class Vehicle {
     var monthlyBudget: Double = 0
     /// Foto do carro (opcional), escolhida pela pessoa.
     @Attribute(.externalStorage) var photoData: Data?
+    /// Capacidade do tanque em litros (0 = não informada).
+    var tankCapacity: Double = 0
     // Tabela FIPE automática (códigos da API pública)
     var fipeBrandCode: String = ""
     var fipeModelCode: String = ""

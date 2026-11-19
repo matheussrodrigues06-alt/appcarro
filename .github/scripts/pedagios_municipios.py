@@ -5,7 +5,7 @@ data/pedagios.json   praças de pedágio federais (ANTT) com localização e val
                      últimos meses. É uma estimativa: descontos de tag e cobrança em um só sentido mudam o valor.
 data/municipios.json todos os municípios do Brasil (IBGE) com coordenadas.
 """
-import csv, io, json, math, os, re, statistics, sys, unicodedata, urllib.request
+import csv, io, json, math, os, re, statistics, sys, time, unicodedata, urllib.request
 from collections import defaultdict
 from datetime import date
 
@@ -20,7 +20,13 @@ def get(url, timeout=300, tries=3):
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
-                return r.read()
+                data = r.read()
+                print("  baixado", url.rsplit("/", 1)[-1][:60], len(data) // 1024, "KB", r.headers.get("Content-Type"))
+                if data[:200].lstrip().lower().startswith((b"<!doctype", b"<html")):
+                    print("  (veio página HTML, não dados):", data[:300])
+                    time.sleep(10)
+                    continue
+                return data
         except Exception as e:
             print("  tentativa", attempt + 1, "falhou:", url.rsplit("/", 1)[-1], e)
     return None

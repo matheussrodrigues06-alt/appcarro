@@ -41,7 +41,9 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build 2>&1 | tee build.log | grep -E "error:|warning:|BUILD" || true
-          test -d build/Release-iphoneos/CarroGastos.app
+          # Só passa se o Xcode terminou sem erro (uma pasta .app pela metade não conta).
+          grep -q "BUILD SUCCEEDED" build.log
+          test -f build/Release-iphoneos/CarroGastos.app/Info.plist
 
       - name: Erros de compilação
         if: failure()
@@ -52,6 +54,9 @@ jobs:
           mkdir -p Payload
           cp -R build/Release-iphoneos/CarroGastos.app Payload/
           zip -qr CarroGastos.ipa Payload
+          # Confere que o .ipa tem o app de verdade (e não ficou vazio).
+          unzip -l CarroGastos.ipa | grep -q "Payload/CarroGastos.app/Info.plist"
+          test "$(stat -f%z CarroGastos.ipa)" -gt 100000
 
       - uses: actions/upload-artifact@v4
         with:

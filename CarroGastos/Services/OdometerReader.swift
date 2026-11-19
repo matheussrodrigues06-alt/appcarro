@@ -133,7 +133,7 @@ enum OdometerReader {
         let map: [Character: Character] = ["O": "0", "o": "0", "D": "0", "Q": "0", "I": "1", "l": "1", "|": "1",
                                            "S": "5", "s": "5", "B": "8", "Z": "2", "z": "2", "G": "6"]
         return text.split(separator: " ", omittingEmptySubsequences: false).map { word -> String in
-            let digits = word.filter(\.isNumber).count
+            let digits = word.reduce(0) { $0 + ($1.isNumber ? 1 : 0) }
             guard word.count >= 3, Double(digits) / Double(word.count) >= 0.6 else { return String(word) }
             return String(word.map { map[$0] ?? $0 })
         }.joined(separator: " ")

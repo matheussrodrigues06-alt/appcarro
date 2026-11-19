@@ -51,6 +51,26 @@ final class FuelPriceStore {
 
     var cityLabel: String { Self.label(for: cityKey) }
 
+    static let stateNames: [String: String] = [
+        "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia", "CE": "Ceará",
+        "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso",
+        "MS": "Mato Grosso do Sul", "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
+        "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
+        "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
+        "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins",
+    ]
+
+    /// "PR/APUCARANA" → "PR"
+    static func state(of key: String) -> String {
+        String(key.split(separator: "/", maxSplits: 1).first ?? "")
+    }
+
+    /// Texto usado na busca: cidade, sigla e nome do estado ("Apucarana PR Paraná").
+    static func searchText(for key: String) -> String {
+        let uf = state(of: key)
+        return "\(label(for: key)) \(stateNames[uf] ?? "")"
+    }
+
     static func label(for key: String) -> String {
         let parts = key.split(separator: "/", maxSplits: 1).map(String.init)
         guard parts.count == 2 else { return key }

@@ -9,7 +9,26 @@ struct FuelCityPickerView: View {
     private var filtered: [String] {
         let query = search.trimmed
         guard !query.isEmpty else { return store.cities }
-        return store.cities.filter { FuelPriceStore.label(for: $0).localizedStandardContains(query) }
+        // Busca por cidade, sigla ou nome do estado ("Paraná" mostra todas do PR).
+        let words = query.split(separator: " ").map(String.init)
+        return store.cities.filter { key in
+            let text = FuelPriceStore.searchText(for: key)
+            return words.allSatisfy { text.localizedStandardContains($0) }
+        }
+    }
+
+    private struct StateGroup: Identifiable {
+        let state: String
+        let cities: [String]
+        var id: String { state }
+        var name: String { FuelPriceStore.stateNames[state] ?? state }
+    }
+
+    /// Cidades agrupadas por estado, em ordem alfabética do nome do estado.
+    private var grouped: [StateGroup] {
+        Dictionary(grouping: filtered) { FuelPriceStore.state(of: $0) }
+            .map { StateGroup(state: $0.key, cities: $0.value.sorted { FuelPriceStore.label(for: $0) < FuelPriceStore.label(for: $1) }) }
+            .sorted { $0.name < $1.name }
     }
 
     var body: some View {
@@ -28,32 +47,42 @@ struct FuelCityPickerView: View {
                         }
                     }
                 } else {
-                    Section {
-                        ForEach(filtered, id: \.self) { key in
-                            Button {
-                                store.setCity(key)
-                                Haptics.success()
-                                dismiss()
-                            } label: {
-                                HStack {
-                                    Text(FuelPriceStore.label(for: key)).foregroundStyle(.primary)
-                                    Spacer()
-                                    if key == store.cityKey {
-                                        Image(systemName: "checkmark").foregroundStyle(Color.brand)
+                    if filtered.isEmpty {
+                        Section {
+                            Text("Nenhuma cidade encontrada. A ANP pesquisa cerca de 400 cidades; escolha a mais próxima da sua.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    ForEach(grouped) { group in
+                        Section(group.name) {
+                            ForEach(group.cities, id: \.self) { key in
+                                Button {
+                                    store.setCity(key)
+                                    Haptics.success()
+                                    dismiss()
+                                } label: {
+                                    HStack {
+                                        Text(FuelPriceStore.label(for: key)).foregroundStyle(.primary)
+                                        Spacer()
+                                        if key == store.cityKey {
+                                            Image(systemName: "checkmark").foregroundStyle(Color.brand)
+                                        }
                                     }
                                 }
                             }
                         }
-                    } footer: {
-                        if let file = store.file {
-                            Text("Fonte: ANP, pesquisa semanal de preços (\(file.periodo ?? file.atualizado)). A ANP pesquisa cerca de 450 cidades; se a sua não aparecer, escolha a mais próxima.")
+                    }
+                    if let file = store.file {
+                        Section {
+                        } footer: {
+                            Text("Fonte: ANP, pesquisa semanal de preços (\(file.periodo ?? file.atualizado)). Busque pelo nome da cidade ou do estado. Se a sua cidade não aparecer, escolha a mais próxima.")
                         }
                     }
                 }
             }
             .navigationTitle("Sua cidade")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $search, prompt: "Buscar cidade")
+            .searchable(text: $search, prompt: "Cidade ou estado (ex.: Apucarana)")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fechar") { dismiss() }

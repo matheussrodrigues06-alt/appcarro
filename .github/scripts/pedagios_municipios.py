@@ -197,8 +197,9 @@ for p in pracas:
     conc = fold(p.get("concessionaria"))
     nome = (p.get("praca_de_pedagio") or "").strip().rstrip("_").strip()
     valor = None
-    near = [(dist_km((lat, lon), (t[0], t[1])), t[3]) for t in tarifas if t[2] == conc]
-    near = [n for n in near if n[0] <= 3]
+    # Cruza pela localização (as concessionárias mudam de nome; a praça continua no mesmo lugar).
+    near = [(dist_km((lat, lon), (t[0], t[1])), t[3]) for t in tarifas]
+    near = [n for n in near if n[0] <= 2.5]
     if near:
         valor = round(min(near)[1] * 10) / 10
     ff = "free" in fold(nome) or "flow" in fold(nome)

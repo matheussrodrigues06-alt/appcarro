@@ -40,6 +40,12 @@ struct OdometerFormView: View {
                     PhotoSourceButtons(cameraTitle: "Foto do painel", libraryTitle: "Da galeria") { image in
                         readDashboard(image)
                     }
+                    if !scanning && candidates.isEmpty && scanMessage == nil {
+                        Text("Dica: fotografe de perto, com o hodômetro (km total) no meio da foto e sem reflexo. Confira o número antes de salvar.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
                     if scanning {
                         HStack(spacing: 8) { ProgressView(); Text("Lendo o painel…").foregroundStyle(.secondary) }
                     }
@@ -87,8 +93,7 @@ struct OdometerFormView: View {
         candidates = []
         scanMessage = nil
         Task {
-            let lines = (try? await TextRecognizer.recognize(image)) ?? []
-            let found = OdometerReader.candidates(from: lines, lastKnown: vehicle.currentOdometer)
+            let found = await OdometerReader.read(image, lastKnown: vehicle.currentOdometer)
             await MainActor.run {
                 scanning = false
                 candidates = found

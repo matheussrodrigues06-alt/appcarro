@@ -105,6 +105,7 @@ struct AssistantChatView: View {
     @State private var thinking = false
     @State private var undone: Set<UUID> = []
     @FocusState private var inputFocused: Bool
+    @State private var speech = SpeechTranscriber()
 
     private let suggestions = [
         "Abasteci 100 reais de gasolina",
@@ -249,7 +250,53 @@ struct AssistantChatView: View {
     }
 
     private var inputBar: some View {
+        VStack(spacing: 6) {
+            if speech.isRecording {
+                Label("Ouvindo… fale e toque no botão vermelho para enviar", systemImage: "waveform")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.danger)
+            } else if let error = speech.errorMessage {
+                Text(error).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            inputRow
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .onChange(of: speech.transcript) { _, text in
+            if !text.isEmpty { input = text }
+        }
+    }
+
+    /// Microfone: toque para falar; toque de novo para parar e enviar.
+    private var micButton: some View {
+        Button {
+            if speech.isRecording {
+                speech.stop()
+                Haptics.success()
+                // Espera o texto final da transcrição e envia.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { send(input) }
+            } else {
+                inputFocused = false
+                input = ""
+                Task { await speech.start() }
+            }
+        } label: {
+            Image(systemName: speech.isRecording ? "stop.fill" : "mic.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(speech.isRecording ? Color.white : Color.brand)
+                .frame(width: 42, height: 42)
+                .background(speech.isRecording ? Color.danger : Color.clear, in: Circle())
+                .glassCircle()
+        }
+        .disabled(thinking)
+        .accessibilityLabel(speech.isRecording ? "Parar e enviar" : "Falar")
+    }
+
+    private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 10) {
+            if !inputFocused {
+                micButton
+            }
             if inputFocused {
                 Button {
                     inputFocused = false
@@ -282,8 +329,6 @@ struct AssistantChatView: View {
             .disabled(!canSend)
             .accessibilityLabel("Enviar")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
     }
 
     private var canSend: Bool { !input.trimmed.isEmpty && !thinking }

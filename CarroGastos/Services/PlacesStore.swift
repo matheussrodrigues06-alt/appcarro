@@ -43,11 +43,16 @@ struct TollPlaza: Hashable, Identifiable, Decodable {
     let valor: Double?
     /// nil = calculado para esta praça; "concessionaria"/"estado" = média (praça sem dados próprios).
     let estimado: String?
+    /// Valor conferido no site da concessionária.
+    let oficial: Bool?
 
     var id: String { "\(concessionaria)|\(nome)|\(lat)|\(lon)" }
     var coordinate: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: lat, longitude: lon) }
 
+    var isOfficial: Bool { oficial ?? false }
+
     var estimateNote: String? {
+        if isOfficial { return nil }
         switch estimado {
         case "concessionaria": return "Estimado pela média da concessionária"
         case "estado": return "Estimado pela média do estado"

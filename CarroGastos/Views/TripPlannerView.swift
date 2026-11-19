@@ -226,7 +226,11 @@ struct TripPlannerView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
-                            if overrides[toll.id] == nil, let note = toll.estimateNote {
+                            if overrides[toll.id] == nil, toll.isOfficial {
+                                Text("Valor oficial da concessionária")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.success)
+                            } else if overrides[toll.id] == nil, let note = toll.estimateNote {
                                 Text(note)
                                     .font(.caption2)
                                     .foregroundStyle(Color.warning)
@@ -238,7 +242,7 @@ struct TripPlannerView: View {
                         }
                         Spacer()
                         if let v = value(of: toll) {
-                            Text(overrides[toll.id] != nil ? v.brl : "≈ \(v.brl)")
+                            Text(overrides[toll.id] != nil || toll.isOfficial ? v.brl : "≈ \(v.brl)")
                                 .font(.rounded(15, .semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(.primary)

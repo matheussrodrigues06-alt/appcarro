@@ -209,6 +209,19 @@ for p in pracas:
         "sentido": (p.get("sentido") or "").strip(), "valor": valor,
     })
 
+# Valores oficiais conferidos no site da concessionária (têm prioridade sobre a estimativa).
+OFICIAIS = [
+    # Motiva Paraná: free flow de Mauá da Serra e de Tamarana (PR-445, "P7 Londrina"), R$ 10,80 para carro
+    # https://rodovias.motiva.com.br/parana/noticias/2026/julho/cliente-com-tag-tem-direito-a-descontos-no-pedagio-eletronico-da/
+    {"conc": "motiva parana", "nome": "maua da serra", "valor": 10.80},
+    {"conc": "motiva parana", "nome": "p7 londrina", "valor": 10.80},
+]
+for o in out:
+    o["oficial"] = False
+    for item in OFICIAIS:
+        if item["conc"] in fold(o["concessionaria"]) and item["nome"] in fold(o["nome"]):
+            o["valor"], o["oficial"] = item["valor"], True
+
 # Praças sem receita própria (free flow e concessões novas): média da concessionária; se não houver, média do estado.
 by_conc, by_uf = defaultdict(list), defaultdict(list)
 for o in out:

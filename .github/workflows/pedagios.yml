@@ -16,6 +16,11 @@ on:
 permissions:
   contents: write
 
+# Um de cada vez (evita dois robôs salvando o mesmo arquivo ao mesmo tempo).
+concurrency:
+  group: pedagios
+  cancel-in-progress: false
+
 jobs:
   atualizar:
     runs-on: ubuntu-latest
@@ -33,5 +38,5 @@ jobs:
           for f in data/pedagios.json data/municipios.json; do if [ -f "$f" ]; then git add "$f"; fi; done
           if git diff --cached --quiet; then echo "Sem mudanças"; exit 0; fi
           git commit -m "Atualiza pedágios e municípios [skip ci]"
-          git pull --rebase
+          git pull --rebase -X theirs
           git push

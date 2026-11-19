@@ -68,7 +68,7 @@ struct DocumentsView: View {
                     ObligationRow(vehicle: vehicle, category: .ipva, year: year) { open(.ipva) }
                     Button { sheet = .fipe } label: {
                         LabeledContent {
-                            Text(vehicle.fipeValue > 0 ? vehicle.fipeValue.brl : "Informar")
+                            Text(vehicle.fipeValue > 0 ? vehicle.fipeValue.brl : "Buscar")
                         } label: {
                             Label("Tabela FIPE", systemImage: "tag")
                         }

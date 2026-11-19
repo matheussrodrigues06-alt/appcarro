@@ -183,7 +183,7 @@ struct HomeView: View {
     private var steps: [Step] {
         [
             Step(id: "fuel", title: "Registre um abastecimento", icon: "fuelpump.fill", done: vehicle.lastFuel != nil) { sheet = .new(.fuel) },
-            Step(id: "fipe", title: "Informe o valor da FIPE", icon: "tag.fill", done: vehicle.fipeValue > 0) { sheet = .fipe },
+            Step(id: "fipe", title: "Escolher o modelo na Tabela FIPE", icon: "tag.fill", done: vehicle.isFipeLinked || vehicle.fipeValue > 0) { sheet = .fipe },
             Step(id: "budget", title: "Defina um orçamento mensal", icon: "target", done: vehicle.monthlyBudget > 0) { sheet = .budget },
             Step(id: "battery", title: "Informe a troca da bateria", icon: "minus.plus.batteryblock", done: vehicle.batteryChangedAt != nil) { sheet = .battery },
             Step(id: "notify", title: "Ative os lembretes", icon: "bell.badge.fill", done: notificationsEnabled) { enableNotifications() },

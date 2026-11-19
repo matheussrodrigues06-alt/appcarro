@@ -136,6 +136,8 @@ struct AssistantChatView: View {
                 .padding(16)
             }
             .scrollDismissesKeyboard(.interactively)
+            .contentShape(Rectangle())
+            .onTapGesture { inputFocused = false }
             .background(BrandGlow())
             .onChange(of: messages.count) { _, _ in
                 withAnimation { proxy.scrollTo(messages.last?.id, anchor: .bottom) }
@@ -248,6 +250,18 @@ struct AssistantChatView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 10) {
+            if inputFocused {
+                Button {
+                    inputFocused = false
+                } label: {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 42, height: 42)
+                        .glassCircle()
+                }
+                .accessibilityLabel("Fechar teclado")
+            }
             TextField("Ex.: abasteci 100 reais", text: $input, axis: .vertical)
                 .lineLimit(1...4)
                 .focused($inputFocused)
@@ -280,12 +294,20 @@ struct AssistantChatView: View {
         let trimmed = text.trimmed
         guard !trimmed.isEmpty, !thinking, let engine else { return }
         input = ""
+        inputFocused = false
         messages.append(Message(role: .user, text: trimmed))
         thinking = true
         Task {
             let result = await engine.send(trimmed)
             thinking = false
-            messages.append(Message(role: .assistant, text: result.reply, actions: result.performed))
+            var reply = result.reply
+            // A IA às vezes diz que registrou sem ter registrado: avisa para não perder o gasto.
+            let lower = reply.lowercased()
+            if result.performed.isEmpty, !reply.contains("?"),
+               lower.contains("registrad") || lower.contains("lançad") || lower.contains("anotad") || lower.contains("atualizad") {
+                reply += "\n\n⚠️ Não consegui salvar desta vez. Tente numa frase só, por exemplo: \"abasteci 100 reais, 14,75 litros\"."
+            }
+            messages.append(Message(role: .assistant, text: reply, actions: result.performed))
             if !result.performed.isEmpty { Haptics.success() }
         }
     }

@@ -5,6 +5,7 @@ struct HomeView: View {
     @Binding var selectedID: String
     @Binding var tab: AppTab
     @State private var sheet: HomeSheet?
+    @State private var scrollToAlerts = false
     @AppStorage("gettingStartedDismissed") private var gettingStartedDismissed = false
     @AppStorage(ReminderScheduler.enabledKey) private var notificationsEnabled = false
 
@@ -44,29 +45,42 @@ struct HomeView: View {
             AlertItem(id: "s-\($0.id.hashValue)", icon: "wrench.and.screwdriver.fill", color: $0.status.color,
                       title: $0.title, subtitle: $0.summary, target: .services)
         }
-        let paid = vehicle.paidObligations(year: Vehicle.currentYear)
-        if paid < 2 {
+        let year = Vehicle.currentYear
+        let missing = [
+            vehicle.payment(.ipva, year: year) == nil ? "IPVA" : nil,
+            vehicle.payment(.licensing, year: year) == nil ? "licenciamento" : nil,
+        ].compactMap { $0 }
+        if !missing.isEmpty {
+            let what = missing.joined(separator: " e ")
             items.append(AlertItem(id: "docs", icon: "doc.text.fill", color: Color.warning,
-                                   title: "Documentação \(Vehicle.currentYear)",
-                                   subtitle: "\(paid) de 2 obrigações pagas", target: .documents))
+                                   title: "Documentação \(year)",
+                                   subtitle: "\(what.prefix(1).uppercased() + what.dropFirst()) de \(year) não \(missing.count > 1 ? "foram registrados" : "foi registrado"). Já pagou? Toque para registrar.",
+                                   target: .documents))
         }
         return items
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    heroCard
-                    quickActions
-                    gettingStarted
-                    alertsSection
-                    FuelPriceCard(vehicle: vehicle) { sheet = .city }
-                    toolsSection
-                    batteryCard
-                    recentSection
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 26) {
+                        heroCard
+                        quickActions
+                        gettingStarted
+                        alertsSection.id("alerts")
+                        FuelPriceCard(vehicle: vehicle) { sheet = .city }
+                        toolsSection
+                        batteryCard
+                        recentSection
+                    }
+                    .padding(16)
                 }
-                .padding(16)
+                .onChange(of: scrollToAlerts) { _, go in
+                    guard go else { return }
+                    withAnimation(.snappy) { proxy.scrollTo("alerts", anchor: .top) }
+                    scrollToAlerts = false
+                }
             }
             .background(BrandGlow())
             .navigationTitle("Início")
@@ -104,11 +118,16 @@ struct HomeView: View {
                         .minimumScaleFactor(0.6)
                 }
                 Spacer()
-                StatusBadge(status: vehicle.overallStatus)
+                Button { scrollToAlerts = true } label: {
+                    StatusBadge(status: vehicle.overallStatus)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Mostra o que precisa de atenção")
             }
             if !vehicle.plate.isEmpty {
                 MercosulPlate(plate: vehicle.plate)
             }
+            pendingSummary
             Divider()
             HStack(alignment: .top, spacing: 8) {
                     HeroMetric(title: "Hodômetro", value: vehicle.currentOdometer.formatted(.number), unit: "km")
@@ -123,7 +142,33 @@ struct HomeView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 24)
+        .heroGlass(cornerRadius: 24)
+    }
+
+    /// Explica o selo "Atenção"/"Vencido": o que está pendente, com toque para ver.
+    @ViewBuilder
+    private var pendingSummary: some View {
+        let items = alerts
+        if let first = items.first {
+            Button { scrollToAlerts = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: vehicle.overallStatus.icon)
+                        .foregroundStyle(vehicle.overallStatus.color)
+                    Text(items.count == 1 ? "Pendente: \(first.title)" : "\(items.count) pendências: \(first.title) e mais \(items.count - 1)")
+                        .font(.rounded(14, .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text("Ver").font(.rounded(14, .semibold)).foregroundStyle(Color.brand)
+                    Image(systemName: "chevron.down").font(.caption.bold()).foregroundStyle(Color.brand)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(vehicle.overallStatus.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     @ViewBuilder

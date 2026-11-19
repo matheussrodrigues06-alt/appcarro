@@ -21,6 +21,8 @@ final class Expense {
     var referenceYear: Int?
     var notes: String = ""
     @Attribute(.externalStorage) var receiptData: Data?
+    /// Marca se há comprovante, sem precisar carregar a foto (listas mais leves).
+    var hasReceiptStored: Bool = false
     var vehicle: Vehicle?
 
     init(category: ExpenseCategory = .other, amount: Double = 0, date: Date = .now) {
@@ -34,7 +36,12 @@ final class Expense {
         set { categoryRaw = newValue.rawValue }
     }
 
-    var hasReceipt: Bool { receiptData != nil }
+    var hasReceipt: Bool { hasReceiptStored }
+
+    func setReceipt(_ data: Data?) {
+        receiptData = data
+        hasReceiptStored = data != nil
+    }
 
     var effectiveYear: Int {
         referenceYear ?? Calendar.current.component(.year, from: date)

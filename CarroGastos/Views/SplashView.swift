@@ -53,7 +53,7 @@ struct SplashView: View {
                         .scaleEffect(x: 1, y: barsUp ? 1 : 0.001, anchor: .bottom)
                         .opacity(barsUp ? 1 : 0)
                         .animation(
-                            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.62).delay(Double(index) * 0.055),
+                            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.62).delay(Double(index) * 0.04),
                             value: barsUp
                         )
                 }
@@ -88,9 +88,9 @@ struct SplashView: View {
             return
         }
         barsUp = true
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.7).delay(0.42)) { wheelsIn = true }
-        withAnimation(.easeOut(duration: 0.35).delay(0.65)) { titleIn = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.55) { onFinish() }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.7).delay(0.32)) { wheelsIn = true }
+        withAnimation(.easeOut(duration: 0.35).delay(0.45)) { titleIn = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { onFinish() }
     }
 }
 

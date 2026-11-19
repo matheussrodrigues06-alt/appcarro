@@ -130,7 +130,7 @@ enum BackupService {
                 expense.intervalMonths = e.intervalMonths
                 expense.referenceYear = e.referenceYear
                 expense.notes = e.notes
-                expense.receiptData = e.receiptData
+                expense.setReceipt(e.receiptData)
                 context.insert(expense)
                 vehicle.expenses.append(expense)
                 expenseCount += 1

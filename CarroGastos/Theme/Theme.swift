@@ -200,17 +200,28 @@ extension View {
 // MARK: - Liquid Glass (iOS 26+), com alternativa para versões anteriores
 
 extension View {
-    /// Cartão de vidro no iOS 26; cartão sólido nas versões anteriores.
-    @ViewBuilder
+    /// Cartão de conteúdo: sólido e leve (o vidro fica para botões e o cartão principal,
+    /// como a Apple recomenda — muitos vidros na rolagem deixam o app lento).
     func glassCard(cornerRadius: CGFloat = 20) -> some View {
+        self
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+    }
+
+    /// Vidro de verdade (iOS 26) — usado só no cartão principal do carro.
+    @ViewBuilder
+    func heroGlass(cornerRadius: CGFloat = 24) -> some View {
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             self.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
         } else {
-            self.background(Color.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            self.glassCard(cornerRadius: cornerRadius)
         }
         #else
-        self.background(Color.surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        self.glassCard(cornerRadius: cornerRadius)
         #endif
     }
 

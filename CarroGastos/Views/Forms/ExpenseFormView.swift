@@ -33,6 +33,8 @@ struct ExpenseFormView: View {
     @State private var intervalMonthsText = ""
     @State private var notes = ""
     @State private var receiptData: Data?
+    @State private var receiptPreview: UIImage?
+    @State private var recentPlaces: [String] = []
     @State private var photoItem: PhotosPickerItem?
     @State private var showingDelete = false
     @State private var loaded = false
@@ -118,7 +120,7 @@ struct ExpenseFormView: View {
                 guard let item else { return }
                 Task {
                     if let data = try? await item.loadTransferable(type: Data.self) {
-                        receiptData = Self.compress(data)
+                        setReceipt(await Self.compressInBackground(data))
                     }
                 }
             }
@@ -247,7 +249,7 @@ struct ExpenseFormView: View {
 
     private var receiptSection: some View {
         Section {
-            if let receiptData, let image = UIImage(data: receiptData) {
+            if let image = receiptPreview {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
@@ -255,7 +257,7 @@ struct ExpenseFormView: View {
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 Button("Remover comprovante", role: .destructive) {
-                    self.receiptData = nil
+                    setReceipt(nil)
                     photoItem = nil
                 }
             }
@@ -281,7 +283,7 @@ struct ExpenseFormView: View {
     }
 
     /// Postos/oficinas usados recentemente nesta categoria.
-    private var recentPlaces: [String] {
+    private func loadRecentPlaces() -> [String] {
         var seen = Set<String>()
         var result: [String] = []
         for item in vehicle.sortedExpenses where item.category == category && !item.place.isEmpty {
@@ -366,8 +368,12 @@ struct ExpenseFormView: View {
                 if let type = data.fuelType, Self.fuelTypes.contains(type) { fuelType = type }
                 if let station = data.station, place.isEmpty { place = station }
                 if let readDate = data.date { date = readDate }
-                if receiptData == nil, let jpeg = image.jpegData(compressionQuality: 0.9) {
-                    receiptData = Self.compress(jpeg)
+                if receiptData == nil {
+                    Task {
+                        if let jpeg = image.jpegData(compressionQuality: 0.9) {
+                            setReceipt(await Self.compressInBackground(jpeg))
+                        }
+                    }
                 }
                 scanMessage = "Cupom lido e anexado como comprovante. Confira os valores antes de salvar."
                 Haptics.success()
@@ -380,6 +386,7 @@ struct ExpenseFormView: View {
     private func load() {
         guard !loaded else { return }
         loaded = true
+        recentPlaces = loadRecentPlaces()
         guard let expense else {
             // No serviço o km atual é um bom padrão; no abastecimento fica vazio
             // (um km repetido estragaria o cálculo do consumo médio).
@@ -407,6 +414,10 @@ struct ExpenseFormView: View {
         intervalMonthsText = expense.intervalMonths.map(String.init) ?? ""
         notes = expense.notes
         receiptData = expense.receiptData
+        receiptPreview = expense.receiptData.flatMap { UIImage(data: $0) }
+        if let liters = expense.liters, liters > 0, expense.amount > 0, category == .fuel {
+            priceText = (expense.amount / liters).formatted(.number.precision(.fractionLength(2...3)).grouping(.never))
+        }
     }
 
     private func save() {
@@ -418,7 +429,7 @@ struct ExpenseFormView: View {
         target.date = date
         target.odometer = odometerText.digitsOnly
         target.notes = notes.trimmed
-        target.receiptData = receiptData
+        target.setReceipt(receiptData)
 
         if category == .fuel {
             target.liters = effectiveLiters
@@ -454,8 +465,19 @@ struct ExpenseFormView: View {
         dismiss()
     }
 
+    /// Guarda a foto e decodifica a prévia uma vez só (não a cada tecla digitada).
+    private func setReceipt(_ data: Data?) {
+        receiptData = data
+        receiptPreview = data.flatMap { UIImage(data: $0) }
+    }
+
+    /// Reduz a foto fora da tela principal (evita travadas).
+    static func compressInBackground(_ data: Data) async -> Data {
+        await Task.detached(priority: .userInitiated) { compress(data) }.value
+    }
+
     /// Reduz a foto para economizar espaço.
-    static func compress(_ data: Data) -> Data {
+    nonisolated static func compress(_ data: Data) -> Data {
         guard let image = UIImage(data: data) else { return data }
         let maxSide: CGFloat = 1600
         let scale = min(1, maxSide / max(image.size.width, image.size.height))

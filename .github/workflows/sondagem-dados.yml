@@ -1,0 +1,12 @@
+name: Sondagem de dados (pedágio e municípios)
+on:
+  push:
+    branches: [dados-teste]
+  workflow_dispatch:
+jobs:
+  sondar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/sondagem_dados.py

@@ -15,6 +15,8 @@ CKAN = "https://dados.antt.gov.br/api/3/action/package_show?id="
 
 
 def get(url, timeout=300):
+    if not url:
+        return None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
@@ -68,17 +70,45 @@ def dist_km(a, b):
     return 6371 * 2 * math.asin(math.sqrt(h))
 
 
+# Endereços conhecidos (reserva, caso a busca do portal da ANTT não responda)
+FALLBACK = {
+    "praca-de-pedagio": [{"format": "CSV", "name": "praças", "url": B + "a7e1e12d-f8e8-40cd-bc1f-57973a4a4a6d/resource/9aa29243-c54c-4084-bc3d-c44a75c9bd7e/download/dados-dos-praas-de-pedgio.csv"}],
+    "receita-por-praca": [
+        {"format": "JSON", "name": "receita 2025", "url": B + "5213d6c6-f494-4cb6-93a7-822ee1cae157/resource/5f48cdb3-db1e-427e-b357-65582a42cfce/download/receita_por_praca_2025.json"},
+        {"format": "JSON", "name": "receita 2024", "url": B + "5213d6c6-f494-4cb6-93a7-822ee1cae157/resource/5229e70a-87e9-4cbf-b219-130a4f965d5a/download/receita_por_praca_2024.json"},
+    ],
+    "volume-trafego-equivalente-praca-pedagio": [
+        {"format": "CSV", "name": "volume 2026", "url": B + "f3ea994f-7435-4867-83b4-1ee5d1debbce/resource/a3e2858b-2f2a-4db7-9aa7-f18f766b1ac8/download/volume-trafego-equivalente-praca-pedagio-2026_mensal_consolidado.csv"},
+        {"format": "CSV", "name": "volume 2025", "url": B + "f3ea994f-7435-4867-83b4-1ee5d1debbce/resource/31621b74-678b-4411-9912-2f9ccc831604/download/volume-trafego-equivalente-praca-pedagio-2025_mensal_consolidado.csv"},
+    ],
+}
+
+
 def resources(package):
-    raw = get(CKAN + package, 60)
-    if not raw:
-        return []
-    return json.loads(raw)["result"]["resources"]
+    """Lista os arquivos de um conjunto da ANTT (busca no portal; se falhar, usa os endereços conhecidos)."""
+    found = []
+    for url in (CKAN + package, "https://dados.antt.gov.br/api/3/action/package_search?q=" + package + "&rows=10"):
+        raw = get(url, 60)
+        if not raw:
+            continue
+        try:
+            res = json.loads(raw)["result"]
+            pkgs = res["results"] if "results" in res else [res]
+            for pk in pkgs:
+                if pk.get("name") == package:
+                    found = pk.get("resources", [])
+            if found:
+                break
+        except Exception as e:
+            print("  resposta inesperada", e)
+    return found or FALLBACK.get(package, [])
 
 
 # ---------- Praças (localização) ----------
 print("Praças…")
 loc_url = next((r["url"] for r in resources("praca-de-pedagio") if (r.get("format") or "").upper() == "CSV"), None)
-pracas = [p for p in csv_rows(get(loc_url)) if (p.get("situacao") or "").lower().startswith("ativ")]
+loc_raw = get(loc_url) or get(FALLBACK["praca-de-pedagio"][0]["url"])
+pracas = [p for p in csv_rows(loc_raw) if (p.get("situacao") or "").lower().startswith("ativ")]
 print(" ativas:", len(pracas))
 
 # ---------- Receita por praça (mês a mês, com lat/lon) ----------
